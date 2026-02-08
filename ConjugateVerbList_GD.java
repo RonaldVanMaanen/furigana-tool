@@ -6,17 +6,12 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 
-public class ConjugateVerbList {
+public class ConjugateVerbList_GD {
     
     public static void main(String[] args) {
-        // String source  = "L:\\FuriganaTool\\Verb_Type_Definition_test.csv";
-        // String out  = "L:\\FuriganaTool\\Verbs_out_test.csv";
-        // String outCheck  = "L:\\FuriganaTool\\Verbs_out_Check_test.csv";
-
         String source  = "L:\\FuriganaTool\\Verb_Type_Definition.csv";
-        String out  = "L:\\FuriganaTool\\Verbs_out.csv";
-        String outCheck  = "L:\\FuriganaTool\\Verbs_out_Check.csv";
-
+        String out  = "L:\\FuriganaTool\\Verbs_out_gd.csv";
+        String outCheck  = "L:\\FuriganaTool\\Verbs_out_Check_gd.csv";
         String output="";
         String outputCheck="";
         int countedLines=0;
@@ -232,16 +227,14 @@ public class ConjugateVerbList {
                         output=output+stemKanji+"ち"+","+pronounciation+"\r\n";
                         // Coll., TT 
                         output=output+stemKanji+"つ"+","+pronounciation+"\r\n";
-                        // Coll., VT + Te-form
-                        //output=output+stemKanji+"った"+","+pronounciation+"\r\n";
-                        output=output+stemKanji+"っ"+","+pronounciation+"\r\n";
+                        // Coll., VT 
+                        output=output+stemKanji+"った"+","+pronounciation+"\r\n";
                         // Coll., Ont, TT+VT + Oud japans ontkennend
                         output=output+stemKanji+"た"+","+pronounciation+"\r\n";
                         // Te-form
-                        // output=output+stemKanji+"って"+","+pronounciation+"\r\n";
+                        output=output+stemKanji+"って"+","+pronounciation+"\r\n";
                         // Volitional
-                        // output=output+stemKanji+"とう"+","+pronounciation+"\r\n";
-                        output=output+stemKanji+"と"+","+pronounciation+"\r\n";
+                        output=output+stemKanji+"とう"+","+pronounciation+"\r\n";
                         // Potential　Bev. + Ont
                         output=output+stemKanji+"げ"+","+pronounciation+"\r\n";
                         // Passive　Bev. + Ont + Causative　Bev. + Ont
@@ -343,13 +336,12 @@ public class ConjugateVerbList {
                         output=output+stemKanji+"り"+","+pronounciation+"\r\n";
                         // Coll., TT 
                         output=output+stemKanji+"る"+","+pronounciation+"\r\n";
-                        // Coll., VT + Te-form
-                        // output=output+stemKanji+"った"+","+pronounciation+"\r\n";
-                        output=output+stemKanji+"っ"+","+pronounciation+"\r\n";
+                        // Coll., VT 
+                        output=output+stemKanji+"った"+","+pronounciation+"\r\n";
                         // Coll., Ont, TT+VT + Oud japans ontkennend
                         output=output+stemKanji+"ら"+","+pronounciation+"\r\n";
                         // Te-form
-                        // output=output+stemKanji+"って"+","+pronounciation+"\r\n";
+                        output=output+stemKanji+"って"+","+pronounciation+"\r\n";
                         // Volitional
                         // output=output+stemKanji+"ろう"+","+pronounciation+"\r\n";
                         output=output+stemKanji+"ろ"+","+pronounciation+"\r\n";
@@ -371,13 +363,12 @@ public class ConjugateVerbList {
                         output=output+stemKanji+"い"+","+pronounciation+"\r\n";
                         // Coll., TT 
                         output=output+stemKanji+"う"+","+pronounciation+"\r\n";
-                        // Coll., VT + Te-form
-                        // output=output+stemKanji+"った"+","+pronounciation+"\r\n";
-                        output=output+stemKanji+"っ"+","+pronounciation+"\r\n";
+                        // Coll., VT 
+                        output=output+stemKanji+"った"+","+pronounciation+"\r\n";
                         // Coll., Ont, TT+VT + Oud japans ontkennend
                         output=output+stemKanji+"わ"+","+pronounciation+"\r\n";
                         // Te-form
-                        // output=output+stemKanji+"って"+","+pronounciation+"\r\n";
+                        output=output+stemKanji+"って"+","+pronounciation+"\r\n";
                         // Volitional
                         // output=output+stemKanji+"おう"+","+pronounciation+"\r\n";
                         output=output+stemKanji+"お"+","+pronounciation+"\r\n";
