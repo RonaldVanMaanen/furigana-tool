@@ -9,6 +9,7 @@ home_dir = os.path.expanduser('~')
 # Path to your CSV (Only used for the Add function)
 CSV_PATH = os.path.join(home_dir, 'Documents', 'JP_Total_List.CSV')
 CSV_PATH_2 = os.path.join(home_dir, 'Documents', 'DO_NOT_FURIGANIZE.txt')
+DICT_PATH = os.path.join(home_dir, 'Documents', 'dictionary.csv')
 
 def msgbox(message, title="Macro Notification", buttons=1, type_msg="infobox"):
     ctx = uno.getComponentContext()
@@ -199,7 +200,7 @@ def add_to_known_words():
         )
     except Exception as e:
         msgbox(f"File Error: {str(e)}")
-        
+
 def lookup_selection_data():
     """Looks up information for the selected text in dictionary.csv."""
     ctx = uno.getComponentContext()
@@ -214,9 +215,6 @@ def lookup_selection_data():
     if not selected_text:
         msgbox("Please select text to look up.")
         return
-
-    # Path to your dictionary file
-    DICT_PATH = r"C:\Files\dictionary.csv"
     
     start_time = time.perf_counter()
     found_data = None

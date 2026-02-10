@@ -6,6 +6,7 @@ import os
 # Paths to your files
 CSV_PATH = r"C:\Files\JP_Total_List.CSV"
 CSV_PATH_2 = r"C:\Files\DO_NOT_FURIGANIZE.txt"
+DICT_PATH = r"C:\Files\dictionary.csv"
 
 def msgbox(message, title="Macro Notification", buttons=1, type_msg="infobox"):
     ctx = uno.getComponentContext()
@@ -211,10 +212,7 @@ def lookup_selection_data():
     if not selected_text:
         msgbox("Please select text to look up.")
         return
-
-    # Path to your dictionary file
-    DICT_PATH = r"C:\Files\dictionary.csv"
-    
+        
     start_time = time.perf_counter()
     found_data = None
     
