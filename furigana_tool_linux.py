@@ -199,6 +199,7 @@ def add_to_known_words():
         )
     except Exception as e:
         msgbox(f"File Error: {str(e)}")
+        
 def lookup_selection_data():
     """Looks up information for the selected text in dictionary.csv."""
     ctx = uno.getComponentContext()
