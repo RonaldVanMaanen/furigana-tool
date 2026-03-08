@@ -4,9 +4,9 @@ import time
 import os
 
 # Paths to your files
-CSV_PATH = r"C:\Files\JP_Total_List.CSV"
-CSV_PATH_2 = r"C:\Files\DO_NOT_FURIGANIZE.txt"
-DICT_PATH = r"C:\Files\dictionary.csv"
+CSV_PATH = r"C:\Files\FuriganaTool\JP_Total_List.CSV"
+CSV_PATH_2 = r"C:\Files\FuriganaTool\DO_NOT_FURIGANIZE.txt"
+DICT_PATH = r"C:\Files\FuriganaTool\dictionary.csv"
 
 def msgbox(message, title="Macro Notification", buttons=1, type_msg="infobox"):
     ctx = uno.getComponentContext()
@@ -199,7 +199,7 @@ def add_to_known_words():
         msgbox(f"File Error: {str(e)}")
 
 def lookup_selection_data():
-    """Looks up information for the selected text in dictionary.csv."""
+    """Looks up information for the selected text in dictionary.csv, showing all matching entries."""
     ctx = uno.getComponentContext()
     smgr = ctx.ServiceManager
     doc = smgr.createInstanceWithContext("com.sun.star.frame.Desktop", ctx).getCurrentComponent()
@@ -214,7 +214,7 @@ def lookup_selection_data():
         return
         
     start_time = time.perf_counter()
-    found_data = None
+    matches = [] # List to hold all found entries
     
     try:
         if not os.path.exists(DICT_PATH):
@@ -222,18 +222,16 @@ def lookup_selection_data():
             return
 
         with open(DICT_PATH, 'r', encoding='utf-8-sig') as f:
-            # Use delimiter='\t' for tab separation
             reader = csv.reader(f, delimiter='\t')
             for row in reader:
-                # Ensure row has enough columns and matches selection
+                # Collect all rows that match the selected text
                 if len(row) >= 4 and row[0].strip() == selected_text:
-                    found_data = {
-                        "word": row[0].strip(),
+                    matches.append({
                         "kana": row[1].strip(),
                         "meaning": row[2].strip(),
                         "tags": row[3].strip()
-                    }
-                    break # Stop at first match
+                    })
+                    # No 'break' here so it continues searching for more entries
                     
     except Exception as e:
         msgbox(f"Error reading dictionary: {str(e)}", "Error")
@@ -241,16 +239,24 @@ def lookup_selection_data():
 
     duration = time.perf_counter() - start_time
 
-    if found_data:
-        report = (
-            f"Lookup Results for: {found_data['word']}\n"
-            f"----------------------------------\n"
-            f"Reading: {found_data['kana']}\n"
-            f"Meaning: {found_data['meaning']}\n"
-            f"Tags: {found_data['tags']}\n\n"
-            f"Search Time: {duration:.3f}s"
-        )
-        msgbox(report, "Dictionary Lookup")
+    if matches:
+        # Create a header for the results
+        results_output = [f"Lookup Results for: {selected_text}\n" + ("=" * 30)]
+        
+        for entry in matches:
+            # Format each individual entry
+            entry_str = (
+                f"Reading: {entry['kana']}\n"
+                f"Meaning: {entry['meaning']}\n"
+                f"Tags: {entry['tags']}"
+            )
+            results_output.append(entry_str)
+        
+        # Join entries with the requested dashed line
+        final_report = "\n----------------------------------\n".join(results_output)
+        final_report += f"\n\nSearch Time: {duration:.3f}s"
+        
+        msgbox(final_report, "Dictionary Lookup")
     else:
         msgbox(f"No entry found for '{selected_text}' in dictionary.", "Not Found")
 
