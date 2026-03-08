@@ -11,6 +11,7 @@ home_dir = os.path.expanduser('~')
 CSV_PATH = os.path.join(home_dir, 'Documents', 'FuriganaTool/JP_Total_List.CSV')
 CSV_PATH_2 = os.path.join(home_dir, 'Documents', 'FuriganaTool/DO_NOT_FURIGANIZE.txt')
 DICT_PATH = os.path.join(home_dir, 'Documents', 'FuriganaTool/dictionary.csv')
+RULES_PATH = os.path.join(home_dir, 'Documents', 'FuriganaTool/rules.csv')
 
 def msgbox(message, title="Macro Notification", buttons=1, type_msg="infobox"):
     ctx = uno.getComponentContext()
