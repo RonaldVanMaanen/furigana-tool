@@ -2,11 +2,13 @@ import uno
 import csv
 import time
 import os
+import re
 
-# Paths to your files
+# Paths
 CSV_PATH = r"C:\Files\FuriganaTool\JP_Total_List.CSV"
 CSV_PATH_2 = r"C:\Files\FuriganaTool\DO_NOT_FURIGANIZE.txt"
 DICT_PATH = r"C:\Files\FuriganaTool\dictionary.csv"
+RULES_PATH = r"C:\Files\FuriganaTool\rules.csv"
 
 def msgbox(message, title="Macro Notification", buttons=1, type_msg="infobox"):
     ctx = uno.getComponentContext()
@@ -17,7 +19,6 @@ def msgbox(message, title="Macro Notification", buttons=1, type_msg="infobox"):
     return msg.execute()
 
 def is_in_selection(found_item, selection):
-    """Checks if found_item is within any of the selected ranges."""
     for i in range(selection.getCount()):
         sel_range = selection.getByIndex(i)
         text_obj = sel_range.getText()
@@ -36,8 +37,17 @@ def add_furigana_fast():
         
     global_start = time.perf_counter()
     
-    # --- STEP 1: LOAD FILES ---
-    load_start = time.perf_counter()
+    # --- LOAD FILES ---
+    context_rules = []
+    try:
+        if os.path.exists(RULES_PATH):
+            with open(RULES_PATH, 'r', encoding='utf-8-sig') as f:
+                reader = csv.reader(f)
+                next(reader) # Skip Header
+                context_rules = [row for row in reader if len(row) >= 4]
+    except Exception as e:
+        msgbox(f"Rules Error: {str(e)}")
+
     word_map = {}
     try:
         with open(CSV_PATH, 'r', encoding='utf-8-sig') as f:
@@ -45,23 +55,19 @@ def add_furigana_fast():
             for row in reader:
                 if len(row) >= 2: word_map[row[0].strip()] = row[1].strip()
     except Exception as e:
-        msgbox(f"Error loading CSV: {str(e)}", "Error", type_msg="errorbox")
+        msgbox(f"CSV Error: {str(e)}")
         return
 
     known_words = []
-    try:
-        if os.path.exists(CSV_PATH_2):
-            with open(CSV_PATH_2, 'r', encoding='utf-8-sig') as f:
-                known_words = [line.strip() for line in f if line.strip()]
-    except Exception as e:
-        msgbox(f"Error loading known words: {str(e)}", "Error", type_msg="errorbox")
-    
-    load_time = time.perf_counter() - load_start
+    if os.path.exists(CSV_PATH_2):
+        with open(CSV_PATH_2, 'r', encoding='utf-8-sig') as f:
+            known_words = [line.strip() for line in f if line.strip()]
 
-    # --- INITIALIZE SEARCH ---
     selection = doc.getCurrentSelection()
     has_active_selection = selection and selection.getCount() > 0 and selection.getByIndex(0).getString() != ""
     doc.lockControllers()
+    
+    rules_applied = 0
     words_added = 0
     words_removed = 0
     
@@ -69,8 +75,31 @@ def add_furigana_fast():
         search_desc = doc.createSearchDescriptor()
         search_desc.SearchCaseSensitive = True
         
-        # --- PHASE 1: ADD FURIGANA ---
-        phase1_start = time.perf_counter()
+        # --- PHASE 0: CONTEXT RULES ---
+        search_desc.SearchRegularExpression = True
+        for rule in context_rules:
+            target, direction, pattern, reading = rule[0].strip(), rule[1].strip().upper(), rule[2].strip(), rule[3].strip()
+            search_desc.SearchString = (pattern + target) if direction == "B" else (target + pattern)
+            
+            found_all = doc.findAll(search_desc)
+            if found_all:
+                for j in range(found_all.getCount()):
+                    m = found_all.getByIndex(j)
+                    if has_active_selection and not is_in_selection(m, selection): continue
+                    cursor = m.getText().createTextCursorByRange(m)
+                    if direction == "B":
+                        cursor.collapseToEnd()
+                        cursor.goLeft(len(target), True)
+                    else:
+                        cursor.collapseToStart()
+                        cursor.goRight(len(target), True)
+                    
+                    if getattr(cursor, "RubyText", "") == "":
+                        cursor.RubyText = reading
+                        rules_applied += 1
+        
+        # --- PHASE 1: GENERAL DICTIONARY ---
+        search_desc.SearchRegularExpression = False 
         sorted_keys = sorted(word_map.keys(), key=len, reverse=True)
         for target in sorted_keys:
             search_desc.SearchString = target
@@ -80,13 +109,11 @@ def add_furigana_fast():
                 for j in range(found_all.getCount()):
                     m = found_all.getByIndex(j)
                     if has_active_selection and not is_in_selection(m, selection): continue
-                    if not getattr(m, "RubyText", None):
+                    if getattr(m, "RubyText", "") == "":
                         m.RubyText = reading
                         words_added += 1
-        phase1_time = time.perf_counter() - phase1_start
 
         # --- PHASE 2: REMOVE KNOWN ---
-        phase2_start = time.perf_counter()
         for target in known_words:
             search_desc.SearchString = target
             found_all = doc.findAll(search_desc)
@@ -97,27 +124,11 @@ def add_furigana_fast():
                     if getattr(m, "RubyText", "") != "":
                         m.RubyText = ""
                         words_removed += 1
-        phase2_time = time.perf_counter() - phase2_start
-
+                        
     finally:
         doc.unlockControllers()
     
-    total_time = time.perf_counter() - global_start
-    
-    # --- RESULTS REPORT ---
-    report = (
-        f"Process Results:\n"
-        f"------------------\n"
-        f"Added: {words_added}\n"
-        f"Removed: {words_removed}\n\n"
-        f"Timing Breakdown:\n"
-        f"------------------\n"
-        f"File Loading: {load_time:.3f}s\n"
-        f"Phase 1 (Add): {phase1_time:.3f}s\n"
-        f"Phase 2 (Remove): {phase2_time:.3f}s\n"
-        f"Total Duration: {total_time:.3f}s"
-    )
-    msgbox(report, "Performance Results")
+    msgbox(f"Rules: {rules_applied}\nAdded: {words_added}\nRemoved: {words_removed}\nTime: {time.perf_counter()-global_start:.3f}s")
 
 def remove_furigana_selection():
     ctx = uno.getComponentContext()
@@ -126,7 +137,6 @@ def remove_furigana_selection():
     selection = doc.getCurrentSelection()
     has_active_selection = selection and selection.getCount() > 0 and selection.getByIndex(0).getString() != ""
 
-    start_time = time.perf_counter()
     doc.lockControllers()
     count = 0
     try:
@@ -143,121 +153,56 @@ def remove_furigana_selection():
                     count += 1
     finally:
         doc.unlockControllers()
-    
-    duration = time.perf_counter() - start_time
-    msgbox(f"Furigana cleared from {count} items.\nTime: {duration:.3f}s", "Reset Complete")
+    msgbox(f"Cleared {count} items.")
 
 def add_to_known_words():
-    """Takes current selection, adds to text file, and clears its furigana document-wide."""
     ctx = uno.getComponentContext()
     smgr = ctx.ServiceManager
     doc = smgr.createInstanceWithContext("com.sun.star.frame.Desktop", ctx).getCurrentComponent()
     selection = doc.getCurrentSelection()
-    
     if not selection or selection.getCount() == 0: return
     selected_text = selection.getByIndex(0).getString().strip()
-    
-    if not selected_text:
-        msgbox("Please select a word first.")
-        return
+    if not selected_text: return
 
     try:
-        start_time = time.perf_counter()
-        # Append word to the exclusion file
         with open(CSV_PATH_2, 'a', encoding='utf-8-sig') as f:
             f.write(f"\n{selected_text}")
-        
-        # --- NEW LOGIC: Document-wide stripping for this specific word ---
         doc.lockControllers()
-        instances_cleared = 0
-        try:
-            search_desc = doc.createSearchDescriptor()
-            search_desc.SearchString = selected_text
-            search_desc.SearchCaseSensitive = True
-            
-            # Find every occurrence of the word in the document
-            found_all = doc.findAll(search_desc)
-            if found_all:
-                for i in range(found_all.getCount()):
-                    item = found_all.getByIndex(i)
-                    # Clear RubyText if it is not already empty
-                    if getattr(item, "RubyText", "") != "":
-                        item.RubyText = ""
-                        instances_cleared += 1
-        finally:
-            doc.unlockControllers()
-            
-        duration = time.perf_counter() - start_time
-        
-        msgbox(
-            f"'{selected_text}' added to exclusion list.\n"
-            f"Furigana cleared from {instances_cleared} instances document-wide.\n"
-            f"Total Time: {duration:.3f}s", 
-            "Word Excluded"
-        )
+        search_desc = doc.createSearchDescriptor()
+        search_desc.SearchString = selected_text
+        found_all = doc.findAll(search_desc)
+        if found_all:
+            for i in range(found_all.getCount()):
+                item = found_all.getByIndex(i)
+                item.RubyText = ""
+        doc.unlockControllers()
+        msgbox(f"Excluded '{selected_text}'")
     except Exception as e:
-        msgbox(f"File Error: {str(e)}")
+        msgbox(str(e))
 
 def lookup_selection_data():
-    """Looks up information for the selected text in dictionary.csv, showing all matching entries."""
     ctx = uno.getComponentContext()
     smgr = ctx.ServiceManager
     doc = smgr.createInstanceWithContext("com.sun.star.frame.Desktop", ctx).getCurrentComponent()
-    
     selection = doc.getCurrentSelection()
-    if not selection or selection.getCount() == 0:
-        return
-    
+    if not selection: return
     selected_text = selection.getByIndex(0).getString().strip()
-    if not selected_text:
-        msgbox("Please select text to look up.")
-        return
+    if not selected_text: return
         
-    start_time = time.perf_counter()
-    matches = [] # List to hold all found entries
-    
+    matches = []
     try:
-        if not os.path.exists(DICT_PATH):
-            msgbox(f"Dictionary file not found: {DICT_PATH}", "Error")
-            return
-
         with open(DICT_PATH, 'r', encoding='utf-8-sig') as f:
             reader = csv.reader(f, delimiter='\t')
             for row in reader:
-                # Collect all rows that match the selected text
                 if len(row) >= 4 and row[0].strip() == selected_text:
-                    matches.append({
-                        "kana": row[1].strip(),
-                        "meaning": row[2].strip(),
-                        "tags": row[3].strip()
-                    })
-                    # No 'break' here so it continues searching for more entries
-                    
+                    matches.append(f"Reading: {row[1]}\nMeaning: {row[2]}\nTags: {row[3]}")
     except Exception as e:
-        msgbox(f"Error reading dictionary: {str(e)}", "Error")
+        msgbox(str(e))
         return
 
-    duration = time.perf_counter() - start_time
-
     if matches:
-        # Create a header for the results
-        results_output = [f"Lookup Results for: {selected_text}\n" + ("=" * 30)]
-        
-        for entry in matches:
-            # Format each individual entry
-            entry_str = (
-                f"Reading: {entry['kana']}\n"
-                f"Meaning: {entry['meaning']}\n"
-                f"Tags: {entry['tags']}"
-            )
-            results_output.append(entry_str)
-        
-        # Join entries with the requested dashed line
-        final_report = "\n----------------------------------\n".join(results_output)
-        final_report += f"\n\nSearch Time: {duration:.3f}s"
-        
-        msgbox(final_report, "Dictionary Lookup")
+        msgbox("\n---\n".join(matches), f"Results for: {selected_text}")
     else:
-        msgbox(f"No entry found for '{selected_text}' in dictionary.", "Not Found")
+        msgbox("Not found.")
 
 g_exportedScripts = (add_furigana_fast, remove_furigana_selection, add_to_known_words, lookup_selection_data)
