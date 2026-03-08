@@ -2,72 +2,68 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.io.IOException;
-import java.util.stream.Stream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Comparator;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class RemoveDoublesAndSort {
     public static void main(String[] args) {
-        String source = "L:\\FuriganaTool\\Combined.csv";
-        String out = "L:\\FuriganaTool\\JP_Total_List_D.CSV";
-        // String source = "L:\\FuriganaTool\\Verb_Type_Definition.csv";
-        // String out = "L:\\FuriganaTool\\Verb_Type_Definition_D.csv";
-        Path inputPath = Paths.get(source);
-        Path outputPath = Paths.get(out);
+        // 1. Define Paths - Verify these exist on your L: drive
+        String verbsPath = "L:\\FuriganaTool\\Verbs_out.csv";
+        String wordsPath = "L:\\FuriganaTool\\Other_words.txt";
+        String outputPath = "L:\\FuriganaTool\\JP_Total_List_S.CSV";
+
+        List<String> allLines = new ArrayList<>();
 
         try {
-            // 1. Load file and filter duplicates using Stream.distinct()
-            List<String> uniqueLines = Files.lines(inputPath)
-                                            .distinct()
-                                            .collect(Collectors.toList());
+            // 2. Read Verbs
+            Path vPath = Paths.get(verbsPath);
+            if (Files.exists(vPath)) {
+                List<String> vLines = Files.readAllLines(vPath);
+                allLines.addAll(vLines);
+                System.out.println("SUCCESS: Read " + vLines.size() + " lines from Verbs.");
+            } else {
+                System.err.println("ERROR: Verbs file not found at " + verbsPath);
+            }
 
-            // 2. Save the result back to a file
-            Files.write(outputPath, uniqueLines);
+            // 3. Read Other Words
+            Path wPath = Paths.get(wordsPath);
+            if (Files.exists(wPath)) {
+                List<String> wLines = Files.readAllLines(wPath);
+                allLines.addAll(wLines);
+                System.out.println("SUCCESS: Read " + wLines.size() + " lines from Other Words.");
+            } else {
+                System.err.println("ERROR: Other Words file not found at " + wordsPath);
+            }
 
-            System.out.println("Duplicates removed successfully!");
+            System.out.println("Total combined lines before filtering: " + allLines.size());
 
-        } catch (IOException e) {
-            System.err.println("An error occurred: " + e.getMessage());
-            e.printStackTrace(); // This prints the sequence of method calls leading to the error
-        }
+            // 4. Remove doubles based on Column 0 (Word)
+            // We use a Map to keep the FIRST instance of a word we find
+            Map<String, String> uniqueMap = new LinkedHashMap<>();
+            for (String line : allLines) {
+                if (line == null || line.trim().isEmpty()) continue;
+                
+                String word = line.split(",")[0].trim();
+                // putIfAbsent ensures if a verb and word are the same, we keep the verb
+                uniqueMap.putIfAbsent(word, line);
+            }
 
-        // 1. Define input and output paths
-        source = "L:\\FuriganaTool\\JP_Total_List_D.CSV";
-        out = "L:\\FuriganaTool\\JP_Total_List_S.CSV";
-        
-        inputPath = Paths.get(source);
-        outputPath = Paths.get(out);
-
-        // 2. Process the file
-        // Using try-with-resources ensures the Stream closes automatically
-        try (Stream<String> lineStream = Files.lines(inputPath)) {
-
-            List<String> sortedLines = lineStream
-                // Filter out empty lines to prevent errors
-                .filter(line -> line != null && !line.trim().isEmpty())
-                // 3. Sort logic: Split by comma, get length of first part
+            // 5. Sort by Length of Column 0 (Longest First)
+            List<String> sortedList = uniqueMap.values().stream()
                 .sorted(Comparator.comparingInt((String line) -> {
-                    // Split by comma (limit 2 is slightly faster as we don't need the rest)
-                    String[] parts = line.split(",", 2); 
-                    // Return length of first part, or 0 if line is empty
-                    return parts.length > 0 ? parts[0].length() : 0;
-                }).reversed()) // .reversed() keeps it Longest -> Shortest
+                    String[] parts = line.split(",", 2);
+                    return parts[0].length();
+                }).reversed()
+                .thenComparing(Comparator.naturalOrder()))
                 .collect(Collectors.toList());
 
-            // 4. Save the sorted lines
-            Files.write(outputPath, sortedLines);
+            // 6. Export
+            Files.write(Paths.get(outputPath), sortedList);
 
-            System.out.println("File processed successfully!");
-            System.out.println("Source: " + inputPath.toAbsolutePath());
-            System.out.println("Output: " + outputPath.toAbsolutePath());
+            System.out.println("--- Results ---");
+            System.out.println("Final file contains " + sortedList.size() + " unique entries.");
+            System.out.println("Saved to: " + outputPath);
 
         } catch (IOException e) {
-            System.err.println("An error occurred processing the file.");
+            System.err.println("Critical I/O Error: " + e.getMessage());
             e.printStackTrace();
         }
     }
