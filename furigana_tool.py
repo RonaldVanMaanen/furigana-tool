@@ -4,6 +4,7 @@ import time
 import os
 import re
 
+
 # Paths
 CSV_PATH = r"C:\Files\FuriganaTool\JP_Total_List.CSV"
 CSV_PATH_2 = r"C:\Files\FuriganaTool\DO_NOT_FURIGANIZE.txt"
