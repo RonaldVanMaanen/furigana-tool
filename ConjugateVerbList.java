@@ -100,6 +100,8 @@ public class ConjugateVerbList {
                 }
 
                 if(aParts[2].equals("ichidan")){
+                    // Verwijder finale る van 辞書形
+                    stemKanji=stemKanji.substring(0,stemKanji.length()-1);   
                     outputCheck=outputCheck+"> Entering ichidan\r\n";
                     // Create conjugations
                     // Polite, TT / VT + Ontkennend
