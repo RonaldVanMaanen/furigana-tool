@@ -9,7 +9,7 @@ import java.util.Set;
 public class RemoveDoublesFromOtherWords {
     public static void main(String[] args) {
         String pathA = "L:\\FuriganaTool\\Verbs_out.csv";
-        String pathB = "L:\\FuriganaTool\\Other_words_3.txt";
+        String pathB = "L:\\FuriganaTool\\Other_words.txt";
         String pathC = "L:\\FuriganaTool\\Other_words_4.txt";
 
         try {
