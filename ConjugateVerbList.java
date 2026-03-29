@@ -30,12 +30,12 @@ public class ConjugateVerbList {
             List<String> lines = Files.readAllLines(Paths.get(source));
             for (String line : lines) {
                 countedLines=countedLines+1;
-                outputCheck=outputCheck+">> Line : "+countedLines+"\r\n";
+                outputCheck=outputCheck+"> Line : "+countedLines+"\r\n";
                 outputCheck=outputCheck+">> Start : "+line+"\r\n";
                 String[] aParts = line.split((","));
-                System.out.println(aParts[2]);
+                // System.out.println(aParts[2]);
                 
-                outputCheck=outputCheck+">> Start : "+aParts[0]+"\r\n"; 
+                outputCheck=outputCheck+">>> Start : "+aParts[0]+"\r\n"; 
 
                 // Determine cut off
                 if (aParts[2].equals("ichidan")) {
@@ -59,14 +59,14 @@ public class ConjugateVerbList {
                     stemKana=aParts[1];
                     
                     pronounciation=aParts[3];
-                    outputCheck=outputCheck+">"+aParts[0]+" = suru stripping \r\n";
+                    outputCheck=outputCheck+">>>"+aParts[0]+" = suru stripping \r\n";
                 } else if (aParts[2].equals("ichidan")) {
                     stemKanji=getStem(aParts[0],cutOff,false);
                     stemKana=getStem(aParts[1],cutOff,false);
                     //pronounciation=getStem(aParts[3],cutOff,false);
                     pronounciation=aParts[3];
                     
-                    outputCheck=outputCheck+">"+aParts[0]+" = ichidan stripping \r\n";
+                    outputCheck=outputCheck+">>>"+aParts[0]+" = ichidan stripping \r\n";
                     outputCheck=outputCheck+"stem Kanji = "+stemKanji+"\r\n";
                     outputCheck=outputCheck+"stem kana = "+stemKana+"\r\n";
                     outputCheck=outputCheck+"pronounciation = "+pronounciation+"\r\n";
@@ -76,8 +76,8 @@ public class ConjugateVerbList {
                     // pronounciation=getStem(aParts[3],cutOff,true);
                     pronounciation=aParts[3];
 
-                    outputCheck=outputCheck+"> Forced stripping\r\n";
-                    outputCheck=outputCheck+">"+aParts[0]+" = godan stripping \r\n";
+                    outputCheck=outputCheck+">>> Forced stripping\r\n";
+                    outputCheck=outputCheck+">>>"+aParts[0]+" = godan stripping \r\n";
                     outputCheck=outputCheck+"stem Kanji = "+stemKanji+"\r\n";
                     outputCheck=outputCheck+"stem kana = "+stemKana+"\r\n";
                     outputCheck=outputCheck+"pronounciation = "+pronounciation+"\r\n";
@@ -88,7 +88,7 @@ public class ConjugateVerbList {
                     // pronounciation=getStem(aParts[3],cutOff,false);
                     pronounciation=aParts[3];
 
-                    outputCheck=outputCheck+">"+aParts[0]+" = special stripping \r\n";
+                    outputCheck=outputCheck+">>>"+aParts[0]+" = special stripping \r\n";
                     outputCheck=outputCheck+"stem Kanji = "+stemKanji+"\r\n";
                     outputCheck=outputCheck+"stem kana = "+stemKana+"\r\n";
                     outputCheck=outputCheck+"pronounciation = "+pronounciation+"\r\n";
@@ -101,7 +101,10 @@ public class ConjugateVerbList {
 
                 if(aParts[2].equals("ichidan")){
                     // Verwijder finale る van 辞書形
-                    stemKanji=stemKanji.substring(0,stemKanji.length()-1);   
+                    // Only strip if it hasn't been stripped by getStem yet
+                    if (stemKanji.endsWith("る")) {
+                        stemKanji = stemKanji.substring(0, stemKanji.length() - 1);
+                    }   
                     outputCheck=outputCheck+"> Entering ichidan\r\n";
                     // Create conjugations
                     // Polite, TT / VT + Ontkennend
@@ -129,7 +132,6 @@ public class ConjugateVerbList {
                     output=output+stemKanji+"さ"+","+pronounciation+"\r\n";
                     // Imperative　
                     output=output+stemKanji+"ろ"+","+pronounciation+"\r\n";
-
                 }
 
                 if(aParts[2].equals("godan")){
