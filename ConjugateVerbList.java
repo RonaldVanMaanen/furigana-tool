@@ -6,17 +6,16 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
 
+import javax.xml.crypto.Data;
+
 public class ConjugateVerbList {
     
     public static void main(String[] args) {
-        // String source  = "L:\\FuriganaTool\\Verb_Type_Definition_test.csv";
-        // String out  = "L:\\FuriganaTool\\Verbs_out_test.csv";
-        // String outCheck  = "L:\\FuriganaTool\\Verbs_out_Check_test.csv";
-
-        String source  = "L:\\FuriganaTool\\Verb_Type_Definition.csv";
-        String out  = "L:\\FuriganaTool\\Verbs_out.csv";
-        String outCheck  = "L:\\FuriganaTool\\Verbs_out_Check.csv";
-
+        String path="L:\\Coding\\VSCode Projects\\furigana-tool\\Data files";
+        String source  = path+"\\Verb_Type_Definition.csv";
+        String out  = path+"\\Verbs_out.csv";
+        String outCheck  = path+"\\Verbs_out_Check.csv";
+        
         String output="";
         String outputCheck="";
         int countedLines=0;

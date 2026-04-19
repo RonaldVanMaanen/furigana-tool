@@ -6,9 +6,10 @@ import java.io.IOException;
 public class RemoveDoublesAndSort {
     public static void main(String[] args) {
         // 1. Define Paths - Verify these exist on your L: drive
-        String verbsPath = "L:\\FuriganaTool\\Verbs_out.csv";
-        String wordsPath = "L:\\FuriganaTool\\Other_words.txt";
-        String outputPath = "L:\\FuriganaTool\\JP_Total_List_S.CSV";
+        String path="L:\\Coding\\VSCode Projects\\furigana-tool\\Data files";
+        String verbsPath = path+"\\Verbs_out.csv";
+        String wordsPath = path+"\\Other_words.txt";
+        String outputPath = path+"\\JP_Total_List_S.CSV";
 
         List<String> allLines = new ArrayList<>();
 
