@@ -1,4 +1,5 @@
 import uno
+import unohelper
 import csv
 import time
 import os
@@ -208,4 +209,65 @@ def lookup_selection_data():
     else:
         msgbox("Not found.")
 
-g_exportedScripts = (add_furigana_fast, remove_furigana_selection, add_to_known_words, lookup_selection_data)
+def furigana_main_menu():
+    ctx = uno.getComponentContext()
+    smgr = ctx.ServiceManager
+    
+    # Maak het dialoog model
+    dialog_model = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialogModel", ctx)
+    dialog_model.Width = 150
+    dialog_model.Height = 100
+    dialog_model.Title = "Furigana Tool Menu"
+    
+    # Definieer de knoppen (Label, Y-positie, Functienaam)
+    options = [
+        ("Furigana Toevoegen (Fast)", 5, add_furigana_fast),
+        ("Furigana Verwijderen", 25, remove_furigana_selection),
+        ("Toevoegen aan Bekende Woorden", 45, add_to_known_words),
+        ("Woordenboek Opzoeken", 65, lookup_selection_data)
+    ]
+    
+    for i, (label, y_pos, func) in enumerate(options):
+        btn_model = dialog_model.createInstance("com.sun.star.awt.UnoControlButtonModel")
+        btn_model.Name = f"btn_{i}"
+        btn_model.Label = label
+        btn_model.PositionX = 10
+        btn_model.PositionY = y_pos
+        btn_model.Width = 130
+        btn_model.Height = 15
+        dialog_model.insertByName(btn_model.Name, btn_model)
+    
+    # Maak de dialoog control
+    dialog = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialog", ctx)
+    dialog.setModel(dialog_model)
+    
+    # --- DE FIX: Gebruik uno.getClass in plaats van createInstance ---
+    class ButtonListener(unohelper.Base, uno.getClass("com.sun.star.awt.XActionListener")):
+        def __init__(self, dialog, options):
+            self.dialog = dialog
+            self.options = options
+            self.choice = None
+            
+        def actionPerformed(self, event):
+            btn_name = event.Source.getModel().Name
+            idx = int(btn_name.split('_')[1])
+            self.choice = self.options[idx][2]
+            self.dialog.endExecute()
+
+        def disposing(self, event):
+            pass
+
+    listener = ButtonListener(dialog, options)
+    for i in range(len(options)):
+        dialog.getControl(f"btn_{i}").addActionListener(listener)
+    
+    # Toon de dialoog
+    dialog.setVisible(True)
+    dialog.execute()
+    dialog.dispose()
+    
+    # Voer de gekozen functie uit
+    if listener.choice:
+        listener.choice()
+
+g_exportedScripts = (furigana_main_menu,add_furigana_fast, remove_furigana_selection, add_to_known_words, lookup_selection_data)
