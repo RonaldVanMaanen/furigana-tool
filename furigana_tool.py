@@ -1,44 +1,89 @@
-import os
-import platform
 import uno
 import unohelper
 import csv
 import time
+import os
 import re
+import platform
 
-# 1. Detecteer het besturingssysteem
+# --- 1. DYNAMISCHE PAD-DETECTIE (OS) ---
 current_os = platform.system()
-
 if current_os == "Windows":
-    # Je oorspronkelijke Windows-pad
     BASE_DIR = r"C:\Files\FuriganaTool"
 else:
-    # Je nieuwe Linux-pad (gebruikt de home-folder)
     BASE_DIR = os.path.join(os.path.expanduser("~"), "Documents", "FuriganaTool")
-    
-# --- PADEN ---
+
 CSV_PATH = os.path.join(BASE_DIR, "JP_Total_List.CSV")
 CSV_PATH_2 = os.path.join(BASE_DIR, "DO_NOT_FURIGANIZE.txt")
 DICT_PATH = os.path.join(BASE_DIR, "dictionary.csv")
 RULES_PATH = os.path.join(BASE_DIR, "rules.csv")
 NEW_ENTRIES_PATH = os.path.join(BASE_DIR, "new_entries.csv")
 
+# --- 2. TAALINSTELLINGEN EN VERTALEN ---
+CURRENT_LANG = "EN" # Standaard taal
+
+TRANSLATIONS = {
+    "EN": {
+        "add": "Add Furigana (All)",
+        "remove": "Remove Furigana",
+        "new": "New Entry (Selected)",
+        "known": "Mark as Known",
+        "edit": "Edit Known List",
+        "dict": "Lookup Dictionary",
+        "switch": "Switch to Japanese / 日本語に切り替え",
+        "title": "Furigana Tool Menu"
+    },
+    "JP": {
+        "add": "振り仮名を付ける（全部）",
+        "remove": "振り仮名を消す",
+        "new": "新しい登録（選択中）",
+        "known": "既知としてマーク",
+        "edit": "既知のリストを編集",
+        "dict": "辞書を引く",
+        "switch": "Switch to English / 英語に切り替え",
+        "title": "ふりがなツールメニュー"
+    }
+}
+
 # --- LIVE ROMAJI NAAR KANA CONVERSIE ---
 KANA_MAP = {
-    'ka':'か','ki':'き','ku':'く','ke':'け','ko':'ko','sa':'さ','shi':'し','su':'す','se':'せ','so':'そ',
-    'ta':'た','chi':'ち','tsu':'つ','te':'te','to':'to','na':'な','ni':'に','nu':'ぬ','ne':'ne','no':'の',
-    'ha':'は','hi':'ひ','fu':'ふ','he':'へ','ho':'ほ','ma':'ま','mi':'み','mu':'む','me':'me','mo':'mo',
-    'ya':'や','yu':'ゆ','yo':'よ','ra':'ら','ri':'ri','ru':'る','re':'re','ro':'ro','wa':'わ','wo':'を',
-    'ga':'が','gi':'ぎ','gu':'ぐ','ge':'ge','go':'ご','za':'ざ','ji':'じ','zu':'ず','ze':'ze','zo':'zo',
-    'da':'だ','di':'ぢ','du':'づ','de':'de','do':'do','ba':'ば','bi':'び','bu':'bu','be':'be','bo':'ぼ',
-    'pa':'ぱ','pi':'ぴ','pu':'ぷ','pe':'ぺ','po':'ぽ','nn':'ん','n ':'ん','la':'ら','li':'り','lu':'る',
-    'le':'れ','lo':'ro','qa':'くぁ','qi':'くぃ','qu':'くぅ','qe':'くぇ','qo':'くぉ',
-    'kya':'きゃ','kyu':'きゅ','kyo':'きょ','sha':'しゃ','shu':'しゅ','sho':'sho',
-    'cha':'ちゃ','chu':'ちゅ','cho':'ちょ','nya':'にゃ','nyu':'にゅ','nyo':'nyo',
-    'hya':'ひゃ','hyu':'ひゅ','hyo':'hyo','mya':'みゃ','myu':'みゅ','myo':'myo',
-    'rya':'りゃ','ryu':'りゅ','ryo':'ryo','gya':'ぎゃ','gyu':'ぎゅ','gyo':'ぎょ',
-    'ja':'じゃ','ju':'じゅ','jo':'じょ','bya':'びゃ','byu':'byu','byo':'byo',
-    'pya':'ぴゃ','pyu':'ぴゅ','pyo':'ぴょ',
+    # Basis klanken
+    'ka':'か','ki':'き','ku':'く','ke':'け','ko':'こ',
+    'sa':'さ','shi':'し','su':'す','se':'せ','so':'そ',
+    'ta':'た','chi':'ち','tsu':'つ','te':'て','to':'と',
+    'na':'な','ni':'に','nu':'ぬ','ne':'ね','no':'の',
+    'ha':'は','hi':'ひ','fu':'ふ','he':'へ','ho':'ほ',
+    'ma':'ま','mi':'み','mu':'む','me':'め','mo':'も',
+    'ya':'や','yu':'ゆ','yo':'よ',
+    'ra':'ら','ri':'り','ru':'る','re':'れ','ro':'ろ',
+    'wa':'わ','wo':'を','nn':'ん','n ':'ん',
+    
+    # Dakuten (G/Z/D/B)
+    'ga':'が','gi':'ぎ','gu':'ぐ','ge':'げ','go':'ご',
+    'za':'ざ','ji':'じ','zu':'ず','ze':'ぜ','zo':'ぞ',
+    'da':'だ','di':'ぢ','du':'づ','de':'で','do':'ど',
+    'ba':'ば','bi':'び','bu':'ぶ','be':'べ','bo':'ぼ',
+    
+    # Handakuten (P)
+    'pa':'ぱ','pi':'ぴ','pu':'ぷ','pe':'ぺ','po':'ぽ',
+    
+    # Alternatieve invoer (L-reeks voor R)
+    'la':'ら','li':'り','lu':'る','le':'れ','lo':'ろ',
+    
+    # Digraphs (Kombinatie klanken)
+    'kya':'きゃ','kyu':'きゅ','kyo':'きょ',
+    'sha':'しゃ','shu':'しゅ','sho':'しょ',
+    'cha':'ちゃ','chu':'ちゅ','cho':'ちょ',
+    'nya':'にゃ','nyu':'にゅ','nyo':'nyo',
+    'hya':'ひゃ','hyu':'ひゅ','hyo':'hyo',
+    'mya':'みゃ','myu':'みゅ','myo':'myo',
+    'rya':'りゃ','ryu':'りゅ','ryo':'ryo',
+    'gya':'ぎゃ','gyu':'ぎゅ','gyo':'ぎょ',
+    'ja':'じゃ','ju':'じゅ','jo':'じょ',
+    'bya':'びゃ','byu':'びゅ','byo':'byo',
+    'pya':'ぴゃ','pyu':'ぴゅ','pyo':'pyo',
+    
+    # Losse klinkers
     'a':'あ','i':'い','u':'う','e':'え','o':'お'
 }
 
@@ -77,7 +122,7 @@ def msgbox(message, title="Furigana Tool", buttons=1, type_msg="infobox"):
     msg = toolkit.createMessageBox(parent, type_msg, buttons, title, str(message))
     return msg.execute()
 
-def input_box_kana(message, title="Kana Invoer"):
+def input_box_kana(message, title="Kana Input"):
     ctx = uno.getComponentContext()
     smgr = ctx.ServiceManager
     dialog_model = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialogModel", ctx)
@@ -173,7 +218,7 @@ def add_furigana_fast():
                     m.RubyText = ""
     finally:
         doc.unlockControllers()
-    msgbox(f"Klaar in {time.perf_counter()-global_start:.2f}s")
+    msgbox(f"Done in {time.perf_counter()-global_start:.2f}s")
 
 def add_custom_entry():
     ctx = uno.getComponentContext()
@@ -181,17 +226,17 @@ def add_custom_entry():
     doc = smgr.createInstanceWithContext("com.sun.star.frame.Desktop", ctx).getCurrentComponent()
     selection = doc.getCurrentSelection()
     if not selection or not selection.getByIndex(0).getString().strip():
-        msgbox("Selecteer eerst een woord.", "Fout") ; return
+        msgbox("Please select a word.", "Error") ; return
     selected_text = selection.getByIndex(0).getString().strip()
-    kana_reading = input_box_kana(f"Woord: {selected_text}\nVoer KANA furigana in:", "Nieuwe Entry")
+    kana_reading = input_box_kana(f"Word: {selected_text}\nEnter KANA furigana:", "New Entry")
     if not kana_reading: return
     preview = f"{selected_text},{kana_reading}"
-    if msgbox(f"Opslaan?\n\nEntry: {preview}", "Bevestig", buttons=4, type_msg="querybox") == 2:
+    if msgbox(f"Save entry?\n\nEntry: {preview}", "Confirm", buttons=4, type_msg="querybox") == 2:
         try:
             with open(NEW_ENTRIES_PATH, 'a', encoding='utf-8-sig', newline='') as f:
                 csv.writer(f).writerow([selected_text, kana_reading.strip()])
-            msgbox(f"Opgeslagen!")
-        except Exception as e: msgbox(f"Fout: {e}")
+            msgbox(f"Saved!")
+        except Exception as e: msgbox(f"Error: {e}")
 
 def add_to_known_words():
     ctx = uno.getComponentContext()
@@ -209,54 +254,36 @@ def add_to_known_words():
         if found:
             for i in range(found.getCount()): found.getByIndex(i).RubyText = ""
         doc.unlockControllers()
-        msgbox(f"'{word}' toegevoegd aan bekende woorden.")
+        msgbox(f"'{word}' marked as known.")
     except Exception as e: msgbox(str(e))
 
 def edit_known_words_file():
-    """Toont de inhoud van DO_NOT_FURIGANIZE.txt en staat bewerken toe."""
     ctx = uno.getComponentContext()
     smgr = ctx.ServiceManager
-    
-    try:
-        content = ""
-        if os.path.exists(CSV_PATH_2):
-            with open(CSV_PATH_2, 'r', encoding='utf-8-sig') as f:
-                content = f.read()
-
-        dialog_model = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialogModel", ctx)
-        dialog_model.Width = 200 ; dialog_model.Height = 250 ; dialog_model.Title = "Bekende Woorden Bewerken"
-
-        edit_model = dialog_model.createInstance("com.sun.star.awt.UnoControlEditModel")
-        edit_model.PositionX = 5 ; edit_model.PositionY = 5 ; edit_model.Width = 190 ; edit_model.Height = 215
-        edit_model.MultiLine = True
-        edit_model.VScroll = True # FIX: Heet VScroll in UNO API
-        edit_model.Text = content
-        dialog_model.insertByName("editor", edit_model)
-
-        save_btn = dialog_model.createInstance("com.sun.star.awt.UnoControlButtonModel")
-        save_btn.Name = "save_btn" ; save_btn.Label = "Opslaan" ; save_btn.PositionX = 40 ; save_btn.PositionY = 225
-        save_btn.Width = 50 ; save_btn.Height = 15 ; save_btn.PushButtonType = 1 
-        dialog_model.insertByName("save_btn", save_btn)
-
-        cancel_btn = dialog_model.createInstance("com.sun.star.awt.UnoControlButtonModel")
-        cancel_btn.Name = "cancel_btn" ; cancel_btn.Label = "Annuleren" ; cancel_btn.PositionX = 110 ; cancel_btn.PositionY = 225
-        cancel_btn.Width = 50 ; cancel_btn.Height = 15 ; cancel_btn.PushButtonType = 2 
-        dialog_model.insertByName("cancel_btn", cancel_btn)
-
-        dialog = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialog", ctx)
-        dialog.setModel(dialog_model)
-        dialog.setVisible(True) # Forceer zichtbaarheid
-        
-        if dialog.execute() == 1:
-            new_content = dialog.getControl("editor").getText()
-            # Map maken als die niet bestaat
-            os.makedirs(os.path.dirname(CSV_PATH_2), exist_ok=True)
-            with open(CSV_PATH_2, 'w', encoding='utf-8-sig', newline='') as f:
-                f.write(new_content)
-            msgbox("Bestand bijgewerkt.")
-        dialog.dispose()
-    except Exception as e:
-        msgbox(f"Fout bij openen lijst: {str(e)}")
+    content = ""
+    if os.path.exists(CSV_PATH_2):
+        with open(CSV_PATH_2, 'r', encoding='utf-8-sig') as f:
+            content = f.read()
+    dialog_model = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialogModel", ctx)
+    dialog_model.Width = 200 ; dialog_model.Height = 250 ; dialog_model.Title = "Edit Known Words"
+    edit_model = dialog_model.createInstance("com.sun.star.awt.UnoControlEditModel")
+    edit_model.PositionX = 5 ; edit_model.PositionY = 5 ; edit_model.Width = 190 ; edit_model.Height = 215
+    edit_model.MultiLine = True ; edit_model.VScroll = True ; edit_model.Text = content
+    dialog_model.insertByName("editor", edit_model)
+    save_btn = dialog_model.createInstance("com.sun.star.awt.UnoControlButtonModel")
+    save_btn.Name = "save_btn" ; save_btn.Label = "Save" ; save_btn.PositionX = 40 ; save_btn.PositionY = 225
+    save_btn.Width = 50 ; save_btn.Height = 15 ; save_btn.PushButtonType = 1 
+    dialog_model.insertByName("save_btn", save_btn)
+    dialog = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialog", ctx)
+    dialog.setModel(dialog_model)
+    dialog.setVisible(True)
+    if dialog.execute() == 1:
+        new_content = dialog.getControl("editor").getText()
+        os.makedirs(os.path.dirname(CSV_PATH_2), exist_ok=True)
+        with open(CSV_PATH_2, 'w', encoding='utf-8-sig', newline='') as f:
+            f.write(new_content)
+        msgbox("Updated.")
+    dialog.dispose()
 
 def remove_furigana_selection():
     ctx = uno.getComponentContext()
@@ -275,7 +302,7 @@ def remove_furigana_selection():
                 m.RubyText = ""
     finally:
         doc.unlockControllers()
-    msgbox("Furigana verwijderd.")
+    msgbox("Furigana removed.")
 
 def lookup_selection_data():
     ctx = uno.getComponentContext()
@@ -293,29 +320,37 @@ def lookup_selection_data():
                     matches.append(f"Reading: {row[1]}\nMeaning: {row[2]}\nTags: {row[3]}")
     except: pass
     if matches: msgbox("\n---\n".join(matches), f"Dict: {word}")
-    else: msgbox("Niet gevonden.")
+    else: msgbox("Not found.")
 
 # --- MENU ---
 
 def furigana_main_menu():
+    global CURRENT_LANG
     ctx = uno.getComponentContext()
     smgr = ctx.ServiceManager
+    
+    t = TRANSLATIONS[CURRENT_LANG]
     dialog_model = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialogModel", ctx)
-    dialog_model.Width = 150 ; dialog_model.Height = 150 ; dialog_model.Title = "Furigana Tool"
+    dialog_model.Width = 150 ; dialog_model.Height = 170 ; dialog_model.Title = t["title"]
+    
     options = [
-        ("Furigana Toevoegen (Alle)", 5, add_furigana_fast),
-        ("Furigana Verwijderen", 25, remove_furigana_selection),
-        ("Nieuwe Entry (Geselecteerd)", 45, add_custom_entry),
-        ("Als Bekend Markeren", 65, add_to_known_words),
-        ("Bekende Lijst Bewerken", 85, edit_known_words_file),
-        ("Woordenboek Opzoeken", 105, lookup_selection_data),
+        (t["add"], 5, add_furigana_fast),
+        (t["remove"], 25, remove_furigana_selection),
+        (t["new"], 45, add_custom_entry),
+        (t["known"], 65, add_to_known_words),
+        (t["edit"], 85, edit_known_words_file),
+        (t["dict"], 105, lookup_selection_data),
+        (t["switch"], 135, "SWITCH") # Speciale actie voor taal
     ]
+    
     for i, (label, y_pos, _) in enumerate(options):
         btn = dialog_model.createInstance("com.sun.star.awt.UnoControlButtonModel")
         btn.Name = f"btn_{i}" ; btn.Label = label ; btn.PositionX = 10 ; btn.PositionY = y_pos
         btn.Width = 130 ; btn.Height = 15 ; dialog_model.insertByName(btn.Name, btn)
+    
     dialog = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialog", ctx)
     dialog.setModel(dialog_model)
+    
     class ButtonListener(unohelper.Base, uno.getClass("com.sun.star.awt.XActionListener")):
         def __init__(self, dialog, options):
             self.dialog = dialog ; self.options = options ; self.choice = None
@@ -323,9 +358,15 @@ def furigana_main_menu():
             idx = int(event.Source.getModel().Name.split('_')[1])
             self.choice = self.options[idx][2] ; self.dialog.endExecute()
         def disposing(self, event): pass
+
     listener = ButtonListener(dialog, options)
     for i in range(len(options)): dialog.getControl(f"btn_{i}").addActionListener(listener)
     dialog.setVisible(True) ; dialog.execute() ; dialog.dispose()
-    if listener.choice: listener.choice()
+    
+    if listener.choice == "SWITCH":
+        CURRENT_LANG = "JP" if CURRENT_LANG == "EN" else "EN"
+        furigana_main_menu() # Heropen menu met nieuwe taal
+    elif listener.choice:
+        listener.choice()
 
 g_exportedScripts = (furigana_main_menu, add_furigana_fast, remove_furigana_selection, add_custom_entry, add_to_known_words, edit_known_words_file, lookup_selection_data)
