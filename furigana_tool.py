@@ -29,7 +29,8 @@ TRANSLATIONS = {
         "new": "New Entry (Selected)",
         "known": "Mark as Known",
         "edit": "Edit Known List",
-        "dict": "Lookup Dictionary",
+        "edit_new": "Edit New Entries",
+        "dict": "Lookup Dictionary",        
         "switch": "Switch to Japanese / 日本語に切り替え",
         "title": "Furigana Tool Menu"
     },
@@ -39,6 +40,7 @@ TRANSLATIONS = {
         "new": "新しい登録（選択中）",
         "known": "既知としてマーク",
         "edit": "既知のリストを編集",
+        "edit_new": "新しい登録を編集",
         "dict": "辞書を引く",
         "switch": "Switch to English / 英語に切り替え",
         "title": "ふりがなツールメニュー"
@@ -322,6 +324,37 @@ def lookup_selection_data():
     if matches: msgbox("\n---\n".join(matches), f"Dict: {word}")
     else: msgbox("Not found.")
 
+def edit_new_entries_file():
+    ctx = uno.getComponentContext()
+    smgr = ctx.ServiceManager
+    content = ""
+    if os.path.exists(NEW_ENTRIES_PATH):
+        with open(NEW_ENTRIES_PATH, 'r', encoding='utf-8-sig') as f:
+            content = f.read()
+    dialog_model = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialogModel", ctx)
+    dialog_model.Width = 200 ; dialog_model.Height = 250 ; dialog_model.Title = "Edit New Entries"
+    edit_model = dialog_model.createInstance("com.sun.star.awt.UnoControlEditModel")
+    edit_model.PositionX = 5 ; edit_model.PositionY = 5 ; edit_model.Width = 190 ; edit_model.Height = 215
+    edit_model.MultiLine = True ; edit_model.VScroll = True ; edit_model.Text = content
+    dialog_model.insertByName("editor", edit_model)
+    save_btn = dialog_model.createInstance("com.sun.star.awt.UnoControlButtonModel")
+    save_btn.Name = "save_btn" ; save_btn.Label = "Save" ; save_btn.PositionX = 40 ; save_btn.PositionY = 225
+    save_btn.Width = 50 ; save_btn.Height = 15 ; save_btn.PushButtonType = 1 
+    dialog_model.insertByName("save_btn", save_btn)
+    dialog = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialog", ctx)
+    dialog.setModel(dialog_model)
+    dialog.setVisible(True)
+    if dialog.execute() == 1:
+        new_content = dialog.getControl("editor").getText()
+        # Ensure the directory exists before writing
+        os.makedirs(os.path.dirname(NEW_ENTRIES_PATH), exist_ok=True)
+        with open(NEW_ENTRIES_PATH, 'w', encoding='utf-8-sig', newline='') as f:
+            f.write(new_content)
+        msgbox("Updated.")
+    dialog.dispose()
+
+
+
 # --- MENU ---
 
 def furigana_main_menu():
@@ -330,17 +363,18 @@ def furigana_main_menu():
     smgr = ctx.ServiceManager
     
     t = TRANSLATIONS[CURRENT_LANG]
-    dialog_model = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialogModel", ctx)
-    dialog_model.Width = 150 ; dialog_model.Height = 170 ; dialog_model.Title = t["title"]
+    dialog_model = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialogModel", ctx) #
+    dialog_model.Width = 150 ; dialog_model.Height = 190 ; dialog_model.Title = t["title"]
     
     options = [
         (t["add"], 5, add_furigana_fast),
         (t["remove"], 25, remove_furigana_selection),
         (t["new"], 45, add_custom_entry),
         (t["known"], 65, add_to_known_words),
-        (t["edit"], 85, edit_known_words_file),
-        (t["dict"], 105, lookup_selection_data),
-        (t["switch"], 135, "SWITCH") # Speciale actie voor taal
+        (t["edit"], 85, edit_known_words_file), #
+        (t["edit_new"], 105, edit_new_entries_file),
+        (t["dict"], 125, lookup_selection_data),
+        (t["switch"], 155, "SWITCH") # Speciale actie voor taal
     ]
     
     for i, (label, y_pos, _) in enumerate(options):
@@ -369,4 +403,4 @@ def furigana_main_menu():
     elif listener.choice:
         listener.choice()
 
-g_exportedScripts = (furigana_main_menu, add_furigana_fast, remove_furigana_selection, add_custom_entry, add_to_known_words, edit_known_words_file, lookup_selection_data)
+g_exportedScripts = (furigana_main_menu, add_furigana_fast, remove_furigana_selection, add_custom_entry, add_to_known_words, edit_known_words_file, edit_new_entries_file, lookup_selection_data)
