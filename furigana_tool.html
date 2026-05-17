@@ -195,7 +195,10 @@
 
     <div class="container">
         <div class="main-content">
-            <h1 data-lang-key="main_editor_title">Text Editor</h1>
+            <h1>
+                <span data-lang-key="main_editor_title">Text Editor</span>
+                <span style="font-size: 0.5em; color: #888; vertical-align: middle; margin-left: 10px;">v1.16</span>
+            </h1>
             <div id="editor" contenteditable="true" class="editor"></div>
         </div>
 
@@ -234,6 +237,7 @@
                 <h2 data-lang-key="text_management_title">Text Management</h2>
                 <button id="btn-save-text" data-lang-key="save_text">Save Text</button>
                 <button id="btn-load-text" data-lang-key="load_text">Load Text</button>
+                <button id="btn-clear-editor" data-lang-key="clear_editor" style="background-color:#dc3545;">Clear Editor</button>
                 <input type="file" id="text-file-picker" style="display: none;" accept=".txt,.html,.htm" />
             </div>
 
@@ -365,6 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
             "load_folder": "Load Data From Folder",
             "save_text": "Save Text (Alt+S)",
             "load_text": "Load Text (Alt+O)",
+            "clear_editor": "Clear Editor",
             "ok": "OK", "yes": "Yes", "no": "No", "cancel": "Cancel", "save": "Save",
             "confirm_delete": "Are you sure you want to delete all stored data? This cannot be undone.",
             "data_deleted": "All data has been deleted.",
@@ -380,7 +385,8 @@ document.addEventListener('DOMContentLoaded', () => {
             "furigana_removed": "Furigana removed from the selected text or the entire document.",
             "processing_done": "Processing finished in",
             "confirm_restore": "An auto-saved session was found. Do you want to restore it?",
-            "session_restored": "Session restored."
+            "session_restored": "Session restored.",
+            "confirm_clear_editor": "Are you sure you want to clear all content from the editor? This cannot be undone."
         },
         "JP": {
             "main_editor_title": "テキストエディター",
@@ -410,6 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
             "load_folder": "フォルダからデータを読み込む",
             "save_text": "テキストを保存 (Alt+S)",
             "load_text": "テキストを読み込む (Alt+O)",
+            "clear_editor": "エディターをクリア",
             "ok": "はい", "yes": "はい", "no": "いいえ", "cancel": "キャンセル", "save": "保存",
             "confirm_delete": "本当にすべてのデータを削除しますか？この操作は元に戻せません。",
             "data_deleted": "すべてのデータが削除されました。",
@@ -425,7 +432,8 @@ document.addEventListener('DOMContentLoaded', () => {
             "furigana_removed": "選択範囲または文書全体から振り仮名が削除されました。",
             "processing_done": "処理完了、時間：",
             "confirm_restore": "自動保存されたセッションが見つかりました。復元しますか？",
-            "session_restored": "セッションが復元されました。"
+            "session_restored": "セッションが復元されました。",
+            "confirm_clear_editor": "本当にエディターのすべての内容をクリアしますか？この操作は元に戻せません。"
         }
     };
 
@@ -457,7 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateLanguage() {
         document.querySelectorAll('[data-lang-key]').forEach(el => {
             const key = el.dataset.langKey;
-            if (['BUTTON', 'H1', 'H2', 'LABEL', 'P'].includes(el.tagName)) {
+            if (['BUTTON', 'H1', 'H2', 'LABEL', 'P', 'SPAN'].includes(el.tagName)) {
                 el.textContent = getLang(key);
             }
         });
@@ -779,6 +787,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function clearEditor() {
+        const confirmed = await showConfirm(getLang('confirm_clear_editor'), getLang('clear_editor'));
+        if (confirmed) {
+            editor.innerHTML = '';
+        }
+    }
+
     function autoSave() {
         const content = editor.innerHTML;
         if (content !== lastEditorContent) {
@@ -907,6 +922,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-load-text').addEventListener('click', () => {
         document.getElementById('text-file-picker').click();
     });
+    document.getElementById('btn-clear-editor').addEventListener('click', clearEditor);
 
     document.getElementById('text-file-picker').addEventListener('change', (e) => {
         const file = e.target.files[0];
