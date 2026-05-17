@@ -13,6 +13,29 @@
             --border-color: #ccc;
             --modal-bg: #fff;
             --modal-shadow: rgba(0,0,0,0.4);
+            --editor-bg: #fff;
+            --control-group-bg: #fff;
+            --jlpt-n5-bg: rgba(144, 238, 144, 0.5);
+            --jlpt-n4-bg: rgba(173, 216, 230, 0.5);
+            --jlpt-n3-bg: rgba(255, 255, 0, 0.4);
+            --jlpt-n2-bg: rgba(255, 165, 0, 0.5);
+            --jlpt-n1-bg: rgba(255, 105, 180, 0.5);
+        }
+        body.dark-theme {
+            --bg-color: #1e1e1e;
+            --fg-color: #d4d4d4;
+            --primary-color: #007acc;
+            --primary-hover: #0090f1;
+            --border-color: #444;
+            --modal-bg: #252526;
+            --modal-shadow: rgba(0,0,0,0.7);
+            --editor-bg: #1e1e1e;
+            --control-group-bg: #252526;
+            --jlpt-n5-bg: rgba(0, 100, 0, 0.6);
+            --jlpt-n4-bg: rgba(0, 70, 130, 0.6);
+            --jlpt-n3-bg: rgba(139, 139, 0, 0.5);
+            --jlpt-n2-bg: rgba(139, 69, 19, 0.6);
+            --jlpt-n1-bg: rgba(139, 0, 139, 0.6);
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -45,7 +68,7 @@
             border: 1px solid var(--border-color);
             padding: 0.5em;
             overflow-y: auto;
-            background-color: #fff;
+            background-color: var(--editor-bg);
             white-space: pre-wrap;
         }
         .controls {
@@ -59,7 +82,7 @@
             border: 1px solid var(--border-color);
             border-radius: 5px;
             padding: 1em;
-            background-color: #fff;
+            background-color: var(--control-group-bg);
         }
         .control-group h2 {
             margin-top: 0;
@@ -122,6 +145,40 @@
             font-size: 1.1em;
             min-width: 60px;
             text-align: center;
+        }
+        .view-options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            align-items: center;
+        }
+        .view-options-grid label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        /* JLPT Highlighting */
+        .editor.jlpt-highlight-active .jlpt-n5 { background-color: var(--jlpt-n5-bg); border-radius: 3px; padding: 0 2px; }
+        .editor.jlpt-highlight-active .jlpt-n4 { background-color: var(--jlpt-n4-bg); border-radius: 3px; padding: 0 2px; }
+        .editor.jlpt-highlight-active .jlpt-n3 { background-color: var(--jlpt-n3-bg); border-radius: 3px; padding: 0 2px; }
+        .editor.jlpt-highlight-active .jlpt-n2 { background-color: var(--jlpt-n2-bg); border-radius: 3px; padding: 0 2px; }
+        .editor.jlpt-highlight-active .jlpt-n1 { background-color: var(--jlpt-n1-bg); border-radius: 3px; padding: 0 2px; }
+
+        /* Kanji Tooltip */
+        #kanji-tooltip {
+            position: fixed;
+            display: none;
+            background-color: var(--modal-bg);
+            color: var(--fg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 10px;
+            z-index: 2000;
+            max-width: 300px;
+            box-shadow: 0 2px 5px var(--modal-shadow);
+            pointer-events: none; /* So it doesn't interfere with mouse events on the editor */
+            font-size: 0.9em;
         }
 
         /* Modal Styles */
@@ -192,6 +249,21 @@
                     <span id="font-size-indicator">16px</span>
                     <button id="btn-font-increase" title="Increase font size">+</button>
                 </div>
+                <hr style="margin: 1em 0;">
+                <div class="view-options-grid">
+                    <label>
+                        <input type="checkbox" id="chk-dark-mode">
+                        <span data-lang-key="dark_mode">Dark Mode</span>
+                    </label>
+                    <label>
+                        <input type="checkbox" id="chk-jlpt-highlight">
+                        <span data-lang-key="jlpt_highlight">JLPT Highlight</span>
+                    </label>
+                    <label>
+                        <input type="checkbox" id="chk-kanji-tooltip">
+                        <span data-lang-key="kanji_tooltip">Kanji Tooltip</span>
+                    </label>
+                </div>
             </div>
 
             <div class="control-group">
@@ -221,6 +293,8 @@
             </div>
         </div>
     </div>
+
+    <div id="kanji-tooltip"></div>
 
     <!-- Modals -->
     <div id="modal-message" class="modal">
@@ -275,13 +349,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const FONT_SIZE_STEP = 2;
     const MIN_FONT_SIZE = 8;
     const MAX_FONT_SIZE = 40;
+    let autoSaveTimer = null;
+    let lastEditorContent = '';
+    let kanjiDetailsMap = new Map();
+    let kanjiTooltipTimer = null;
     const STORAGE_KEYS = {
         TOTAL_LIST: 'furigana_total_list',
         DONT_FURIGANIZE: 'furigana_dont_furiganize',
         NEW_ENTRIES: 'furigana_new_entries',
         RULES: 'furigana_rules',
         DICTIONARY: 'furigana_dictionary',
-        FONT_SIZE: 'furigana_font_size'
+        FONT_SIZE: 'furigana_font_size',
+        THEME: 'furigana_theme',
+        JLPT_HIGHLIGHT: 'furigana_jlpt_highlight',
+        KANJI_TOOLTIP: 'furigana_kanji_tooltip',
+        AUTOSAVE_CONTENT: 'furigana_autosave_content',
+        KANJI_DETAILS: 'furigana_kanji_details',
+        JLPT_VOCAB: 'furigana_jlpt_vocab'
     };
 
     const FILENAME_MAP = {
@@ -289,13 +373,18 @@ document.addEventListener('DOMContentLoaded', () => {
         'DO_NOT_FURIGANIZE.txt': STORAGE_KEYS.DONT_FURIGANIZE,
         'new_entries.csv': STORAGE_KEYS.NEW_ENTRIES,
         'rules.csv': STORAGE_KEYS.RULES,
-        'dictionary.csv': STORAGE_KEYS.DICTIONARY
+        'dictionary.csv': STORAGE_KEYS.DICTIONARY,
+        'kanji_details.csv': STORAGE_KEYS.KANJI_DETAILS,
+        'jlpt_vocab.csv': STORAGE_KEYS.JLPT_VOCAB
     };
 
     const TRANSLATIONS = {
         "EN": {
             "main_editor_title": "Text Editor",
             "view_options_title": "View Options",
+            "dark_mode": "Dark Mode",
+            "jlpt_highlight": "JLPT Highlight",
+            "kanji_tooltip": "Kanji Tooltip",
             "menu_title": "Furigana Tool Menu",
             "data_management_title": "Data Management",
             "text_management_title": "Text Management",
@@ -321,8 +410,8 @@ document.addEventListener('DOMContentLoaded', () => {
             "ok": "OK", "yes": "Yes", "no": "No", "cancel": "Cancel", "save": "Save",
             "confirm_delete": "Are you sure you want to delete all stored data? This cannot be undone.",
             "data_deleted": "All data has been deleted.",
-            "files_loaded_summary": "files loaded successfully.",
-            "data_management_note": "Click the button to select the folder containing your data files. Your browser will remember them.",
+            "files_loaded_summary": "files loaded.",
+            "data_management_note": "Click 'Load Data' to select your data folder. The tool looks for specific filenames (e.g., JP_Total_List.CSV, dictionary.csv, kanji_details.csv, jlpt_vocab.csv).",
             "error_loading": "Error loading file.",
             "no_selection": "Please select a word first.",
             "new_entry_prompt": "Enter KANA reading for:",
@@ -331,11 +420,17 @@ document.addEventListener('DOMContentLoaded', () => {
             "word_marked_known": "Word marked as known and furigana removed from text.",
             "dict_not_found": "Word not found in dictionary.",
             "furigana_removed": "Furigana removed from the selected text or the entire document.",
-            "processing_done": "Processing finished in"
+            "processing_done": "Processing finished in",
+            "confirm_restore": "An auto-saved session was found. Do you want to restore it?",
+            "session_restored": "Session restored.",
+            "kanji_data_note": "To use this, provide a 'kanji_details.csv' file in your data folder with the format: Kanji,On-yomi,Kun-yomi,Meaning"
         },
         "JP": {
             "main_editor_title": "テキストエディター",
             "view_options_title": "表示オプション",
+            "dark_mode": "ダークモード",
+            "jlpt_highlight": "JLPTハイライト",
+            "kanji_tooltip": "漢字ツールチップ",
             "menu_title": "ふりがなツールメニュー",
             "data_management_title": "データ管理",
             "text_management_title": "テキスト管理",
@@ -361,8 +456,8 @@ document.addEventListener('DOMContentLoaded', () => {
             "ok": "はい", "yes": "はい", "no": "いいえ", "cancel": "キャンセル", "save": "保存",
             "confirm_delete": "本当にすべてのデータを削除しますか？この操作は元に戻せません。",
             "data_deleted": "すべてのデータが削除されました。",
-            "files_loaded_summary": "個のファイルが正常に読み込まれました。",
-            "data_management_note": "ボタンをクリックして、データファイルが含まれるフォルダを選択してください。ブラウザはそれらを記憶します。",
+            "files_loaded_summary": "個のファイルを読み込みました。",
+            "data_management_note": "「データを読み込む」をクリックして、データフォルダを選択してください。ツールは特定のファイル名（例：JP_Total_List.CSV、dictionary.csv、kanji_details.csv、jlpt_vocab.csv）を探します。",
             "error_loading": "ファイルの読み込み中にエラーが発生しました。",
             "no_selection": "まず単語を選択してください。",
             "new_entry_prompt": "の仮名を入力してください：",
@@ -371,7 +466,10 @@ document.addEventListener('DOMContentLoaded', () => {
             "word_marked_known": "単語が既知としてマークされ、テキストから振り仮名が削除されました。",
             "dict_not_found": "辞書に単語が見つかりませんでした。",
             "furigana_removed": "選択範囲または文書全体から振り仮名が削除されました。",
-            "processing_done": "処理完了、時間："
+            "processing_done": "処理完了、時間：",
+            "confirm_restore": "自動保存されたセッションが見つかりました。復元しますか？",
+            "session_restored": "セッションが復元されました。",
+            "kanji_data_note": "この機能を使用するには、データフォルダに「kanji_details.csv」というファイルを次の形式で用意してください：漢字、音読み、訓読み、意味"
         }
     };
 
@@ -396,6 +494,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 2. DOM ELEMENTS ---
     const editor = document.getElementById('editor');
     const fontSizeIndicator = document.getElementById('font-size-indicator');
+    const kanjiTooltip = document.getElementById('kanji-tooltip');
 
     // --- 3. UI & MODAL FUNCTIONS ---
     const getLang = (key) => TRANSLATIONS[CURRENT_LANG][key] || key;
@@ -550,16 +649,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const rulesRaw = localStorage.getItem(STORAGE_KEYS.RULES) || '';
 
         // 2. Prepare word maps and lists
-        const wordMap = {};
+        const wordMap = {}; // Now stores { reading, level }
+        // Load main list and new entries for readings
         [totalListRaw, newEntriesRaw].forEach(raw => {
             raw.split(/\r?\n/).forEach(line => {
                 const parts = line.split(',');
                 if (parts.length >= 2 && parts[0].trim()) {
-                    wordMap[parts[0].trim()] = parts[1].trim();
+                    wordMap[parts[0].trim()] = { reading: parts[1].trim(), level: null };
                 }
             });
         });
 
+        // Load JLPT vocab to add level information
+        const jlptVocabRaw = localStorage.getItem(STORAGE_KEYS.JLPT_VOCAB) || '';
+        jlptVocabRaw.split(/\r?\n/).forEach(line => {
+            const parts = line.split(',');
+            // Assuming format: word,level_tag (e.g., 図書館,jlpt-n5)
+            if (parts.length >= 2) {
+                const word = parts[0].trim();
+                const level = parts[1].trim();
+                const match = level.match(/jlpt-n[1-5]/i);
+                if (match && wordMap[word]) {
+                    wordMap[word].level = match[0].toLowerCase();
+                }
+            }
+        });
         const knownWords = new Set(knownWordsRaw.split(/\r?\n/).map(w => w.trim()).filter(Boolean));
         const contextRules = rulesRaw.split(/\r?\n/).slice(1) // skip header
             .map(line => line.split(',')).filter(row => row.length >= 4);
@@ -607,9 +721,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 let finalPart = '';
                 part.replace(allWordsRegex, (match, offset) => {
                     finalPart += part.substring(lastIndex, offset);
-                    const reading = wordMap[match];
-                    if (reading && !knownWords.has(match)) {
-                        finalPart += `<ruby>${match}<rt>${reading}</rt></ruby>`;
+                    const wordData = wordMap[match];
+                    if (wordData && !knownWords.has(match)) {
+                        let ruby = `<ruby>${match}<rt>${wordData.reading}</rt></ruby>`;
+                        if (wordData.level) {
+                            ruby = `<span class="${wordData.level}">${ruby}</span>`;
+                        }
+                        finalPart += ruby;
                     } else {
                         finalPart += match;
                     }
@@ -638,6 +756,60 @@ document.addEventListener('DOMContentLoaded', () => {
         showMessage(`${getLang('processing_done')} ${duration}s`);
     }
 
+    function applyTheme(isDark) {
+        if (isDark) {
+            document.body.classList.add('dark-theme');
+        } else {
+            document.body.classList.remove('dark-theme');
+        }
+        document.getElementById('chk-dark-mode').checked = isDark;
+        localStorage.setItem(STORAGE_KEYS.THEME, isDark ? 'dark' : 'light');
+    }
+
+    function applyJlptHighlighting(isEnabled) {
+        if (isEnabled) {
+            editor.classList.add('jlpt-highlight-active');
+        } else {
+            editor.classList.remove('jlpt-highlight-active');
+        }
+        document.getElementById('chk-jlpt-highlight').checked = isEnabled;
+        localStorage.setItem(STORAGE_KEYS.JLPT_HIGHLIGHT, isEnabled);
+    }
+
+    function applyKanjiTooltip(isEnabled) {
+        document.getElementById('chk-kanji-tooltip').checked = isEnabled;
+        localStorage.setItem(STORAGE_KEYS.KANJI_TOOLTIP, isEnabled);
+        if (isEnabled && kanjiDetailsMap.size === 0) {
+            showMessage(getLang('kanji_data_note'));
+        }
+    }
+
+    function autoSave() {
+        const content = editor.innerHTML;
+        if (content !== lastEditorContent) {
+            localStorage.setItem(STORAGE_KEYS.AUTOSAVE_CONTENT, content);
+            lastEditorContent = content;
+        }
+    }
+
+    function showKanjiTooltip(char, x, y) {
+        const details = kanjiDetailsMap.get(char);
+        if (!details) return;
+
+        kanjiTooltip.innerHTML = `<h4>${char}</h4><p><strong>On:</strong> ${details.on}</p><p><strong>Kun:</strong> ${details.kun}</p><p><strong>Mean:</strong> ${details.mean}</p>`;
+        kanjiTooltip.style.display = 'block';
+        const tooltipRect = kanjiTooltip.getBoundingClientRect();
+        let top = y + 20;
+        let left = x - (tooltipRect.width / 2);
+
+        if (left < 0) left = 5;
+        if (left + tooltipRect.width > window.innerWidth) left = window.innerWidth - tooltipRect.width - 5;
+        if (top + tooltipRect.height > window.innerHeight) top = y - tooltipRect.height - 10;
+
+        kanjiTooltip.style.left = `${left}px`;
+        kanjiTooltip.style.top = `${top}px`;
+    }
+
     function removeFurigana() {
         const selection = window.getSelection();
         if (selection && selection.rangeCount > 0 && selection.toString().length > 0) {
@@ -645,11 +817,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const container = document.createElement('div');
             container.appendChild(range.cloneContents());
             let html = container.innerHTML;
-            html = html.replace(/<ruby>(.*?)<rt>.*?<\/rt><\/ruby>/g, '$1');
+        // First, handle ruby tags wrapped in jlpt spans
+        html = html.replace(/<span class="jlpt-n[1-5]">\s*<ruby>(.*?)<rt>.*?<\/rt><\/ruby>\s*<\/span>/g, '$1');
+        // Then, handle any remaining non-highlighted ruby tags
+        html = html.replace(/<ruby>(.*?)<rt>.*?<\/rt><\/ruby>/g, '$1');
             range.deleteContents();
             range.insertNode(document.createRange().createContextualFragment(html));
         } else {
-            editor.innerHTML = editor.innerHTML.replace(/<ruby>(.*?)<rt>.*?<\/rt><\/ruby>/g, '$1');
+        let content = editor.innerHTML;
+        content = content.replace(/<span class="jlpt-n[1-5]">\s*<ruby>(.*?)<rt>.*?<\/rt><\/ruby>\s*<\/span>/g, '$1');
+        content = content.replace(/<ruby>(.*?)<rt>.*?<\/rt><\/ruby>/g, '$1');
+        editor.innerHTML = content;
         }
         showMessage(getLang('furigana_removed'));
     }
@@ -702,8 +880,14 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(STORAGE_KEYS.DONT_FURIGANIZE, currentKnown + `\n${word}`);
 
         // Remove furigana for this word in the editor
-        const regex = new RegExp(`<ruby>${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}<rt>.*?<\/rt><\/ruby>`, 'g');
-        editor.innerHTML = editor.innerHTML.replace(regex, word);
+    const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const spanRegex = new RegExp(`<span class="jlpt-n[1-5]">\s*<ruby>${escapedWord}<rt>.*?<\/rt><\/ruby>\s*<\/span>`, 'g');
+    const rubyRegex = new RegExp(`<ruby>${escapedWord}<rt>.*?<\/rt><\/ruby>`, 'g');
+    
+    let content = editor.innerHTML;
+    content = content.replace(spanRegex, word);
+    content = content.replace(rubyRegex, word);
+    editor.innerHTML = content;
 
         showMessage(getLang('word_marked_known'));
     }
@@ -742,6 +926,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // View options
     document.getElementById('btn-font-increase').addEventListener('click', () => changeFontSize(FONT_SIZE_STEP));
     document.getElementById('btn-font-decrease').addEventListener('click', () => changeFontSize(-FONT_SIZE_STEP));
+    document.getElementById('chk-dark-mode').addEventListener('change', (e) => applyTheme(e.target.checked));
+    document.getElementById('chk-jlpt-highlight').addEventListener('change', (e) => applyJlptHighlighting(e.target.checked));
+    document.getElementById('chk-kanji-tooltip').addEventListener('change', (e) => applyKanjiTooltip(e.target.checked));
 
     // Text management
     document.getElementById('btn-save-text').addEventListener('click', saveText);
@@ -861,13 +1048,72 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Editor events for Kanji Tooltip
+    editor.addEventListener('mousemove', (e) => {
+        if (!document.getElementById('chk-kanji-tooltip').checked) return;
+        
+        clearTimeout(kanjiTooltipTimer);
+        kanjiTooltip.style.display = 'none';
+
+        kanjiTooltipTimer = setTimeout(() => {
+            let range;
+            if (document.caretRangeFromPoint) {
+                range = document.caretRangeFromPoint(e.clientX, e.clientY);
+            } else if (document.caretPositionFromPoint) { // Firefox
+                const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+                range = document.createRange();
+                range.setStart(pos.offsetNode, pos.offset);
+            } else {
+                return; // Unsupported browser
+            }
+
+            if (range && range.startContainer.nodeType === Node.TEXT_NODE) {
+                const char = range.startContainer.textContent[range.startOffset];
+                if (char && /[\u4e00-\u9faf]/.test(char)) {
+                    showKanjiTooltip(char, e.clientX, e.clientY);
+                }
+            }
+        }, 300); // 300ms delay
+    });
+
+    editor.addEventListener('mouseleave', () => {
+        clearTimeout(kanjiTooltipTimer);
+        kanjiTooltip.style.display = 'none';
+    });
+
     // --- 7. INITIALIZATION ---
-    const savedFontSize = localStorage.getItem(STORAGE_KEYS.FONT_SIZE);
-    if (savedFontSize) {
-        currentFontSize = parseInt(savedFontSize, 10);
+    async function initializeApp() {
+        applyTheme(localStorage.getItem(STORAGE_KEYS.THEME) === 'dark');
+        applyJlptHighlighting(localStorage.getItem(STORAGE_KEYS.JLPT_HIGHLIGHT) === 'true');
+        applyKanjiTooltip(localStorage.getItem(STORAGE_KEYS.KANJI_TOOLTIP) === 'true');
+        
+        const kanjiDataRaw = localStorage.getItem(STORAGE_KEYS.KANJI_DETAILS) || '';
+        kanjiDataRaw.split(/\r?\n/).forEach(line => {
+            const parts = line.split(',');
+            if (parts.length >= 4) {
+                kanjiDetailsMap.set(parts[0].trim(), { on: parts[1], kun: parts[2], mean: parts[3] });
+            }
+        });
+
+        const autoSavedContent = localStorage.getItem(STORAGE_KEYS.AUTOSAVE_CONTENT);
+        if (autoSavedContent) {
+            const restore = await showConfirm(getLang('confirm_restore'));
+            if (restore) {
+                editor.innerHTML = autoSavedContent;
+                showMessage(getLang('session_restored'));
+            }
+            localStorage.removeItem(STORAGE_KEYS.AUTOSAVE_CONTENT);
+        }
+        lastEditorContent = editor.innerHTML;
+
+        const savedFontSize = localStorage.getItem(STORAGE_KEYS.FONT_SIZE);
+        if (savedFontSize) currentFontSize = parseInt(savedFontSize, 10);
+        applyFontSize(currentFontSize);
+        updateLanguage();
+        autoSaveTimer = setInterval(autoSave, 30000);
     }
-    applyFontSize(currentFontSize);
-    updateLanguage();
+
+    initializeApp();
 });
 </script>
 
