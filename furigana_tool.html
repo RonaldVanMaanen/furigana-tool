@@ -528,7 +528,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function addFurigana() {
         const startTime = performance.now();
-        let content = editor.innerHTML;
+        const selection = window.getSelection();
+        const hasSelection = selection && selection.rangeCount > 0 && selection.toString().length > 0;
+
+        let content = '';
+        let range = null;
+
+        if (hasSelection) {
+            range = selection.getRangeAt(0);
+            const container = document.createElement('div');
+            container.appendChild(range.cloneContents());
+            content = container.innerHTML;
+        } else {
+            content = editor.innerHTML;
+        }
 
         // 1. Get data from localStorage
         const totalListRaw = localStorage.getItem(STORAGE_KEYS.TOTAL_LIST) || '';
@@ -558,30 +571,55 @@ document.addEventListener('DOMContentLoaded', () => {
         contextRules.forEach(rule => {
             const [target, direction, pattern, reading] = rule.map(s => s.trim());
             if (!target || !pattern || !reading) return;
-            
-            const searchPattern = direction.toUpperCase() === 'B' 
+
+            const searchPattern = direction.toUpperCase() === 'B'
                 ? `(${escapeRegex(pattern)})(${escapeRegex(target)})`
                 : `(${escapeRegex(target)})(${escapeRegex(pattern)})`;
-            
+
             const regex = new RegExp(searchPattern, 'g');
-            content = content.replace(regex, (match, p1, p2) => {
-                if (direction.toUpperCase() === 'B') {
-                    return `${p1}<ruby>${p2}<rt>${reading}</rt></ruby>`;
-                } else {
-                    return `<ruby>${p1}<rt>${reading}</rt></ruby>${p2}`;
-                }
+            
+            const parts = content.split(/(<[^>]+>)/g);
+            const newParts = parts.map((part, index) => {
+                if (index % 2 !== 0) return part; // It's a tag
+                return part.replace(regex, (match, p1, p2) => {
+                    if (direction.toUpperCase() === 'B') {
+                        return `${p1}<ruby>${p2}<rt>${reading}</rt></ruby>`;
+                    } else {
+                        return `<ruby>${p1}<rt>${reading}</rt></ruby>${p2}`;
+                    }
+                });
             });
+            content = newParts.join('');
         });
 
-        // 4. Apply main word list, sorted by length
+        // 4. Apply main word list, using a method that prevents nesting.
         const sortedWords = Object.keys(wordMap).sort((a, b) => b.length - a.length);
-        sortedWords.forEach(word => {
-            if (knownWords.has(word)) return;
-            const reading = wordMap[word];
-            // Use a regex that doesn't match inside existing HTML tags
-            const regex = new RegExp(escapeRegex(word) + '(?![^<]*>|<rt>)', 'g');
-            content = content.replace(regex, `<ruby>${word}<rt>${reading}</rt></ruby>`);
-        });
+        const wordsToProcess = sortedWords.filter(word => word.length > 0);
+        
+        if (wordsToProcess.length > 0) {
+            const allWordsRegex = new RegExp(wordsToProcess.map(escapeRegex).join('|'), 'g');
+
+            const parts = content.split(/(<[^>]+>)/g);
+            const newParts = parts.map((part, index) => {
+                if (index % 2 !== 0) return part; // It's a tag
+
+                let lastIndex = 0;
+                let finalPart = '';
+                part.replace(allWordsRegex, (match, offset) => {
+                    finalPart += part.substring(lastIndex, offset);
+                    const reading = wordMap[match];
+                    if (reading && !knownWords.has(match)) {
+                        finalPart += `<ruby>${match}<rt>${reading}</rt></ruby>`;
+                    } else {
+                        finalPart += match;
+                    }
+                    lastIndex = offset + match.length;
+                });
+                finalPart += part.substring(lastIndex);
+                return finalPart;
+            });
+            content = newParts.join('');
+        }
 
         // 5. Remove furigana for known words that might have been added
         knownWords.forEach(word => {
@@ -589,7 +627,13 @@ document.addEventListener('DOMContentLoaded', () => {
             content = content.replace(regex, word);
         });
 
-        editor.innerHTML = content;
+        if (hasSelection && range) {
+            range.deleteContents();
+            range.insertNode(document.createRange().createContextualFragment(content));
+        } else {
+            editor.innerHTML = content;
+        }
+
         const duration = ((performance.now() - startTime) / 1000).toFixed(2);
         showMessage(`${getLang('processing_done')} ${duration}s`);
     }
@@ -622,9 +666,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const confirmed = await showConfirm(`${getLang('confirm_save_entry')}\n\n${selectedText},${kanaReading}`);
         if (confirmed) {
-            const newEntry = `\n${selectedText},${kanaReading.trim()}`;
-            const currentEntries = localStorage.getItem(STORAGE_KEYS.NEW_ENTRIES) || '';
-            localStorage.setItem(STORAGE_KEYS.NEW_ENTRIES, currentEntries + newEntry);
+            const currentEntriesRaw = localStorage.getItem(STORAGE_KEYS.NEW_ENTRIES) || '';
+            
+            // Use a Map to handle updates and prevent duplicates for the same word.
+            const entryMap = new Map();
+            currentEntriesRaw.split(/\r?\n/).forEach(line => {
+                if (!line.trim()) return;
+                const parts = line.split(',');
+                if (parts.length >= 2) {
+                    // Re-join remaining parts in case reading contains a comma
+                    entryMap.set(parts[0].trim(), parts.slice(1).join(',').trim());
+                }
+            });
+
+            // Add or update the new entry
+            entryMap.set(selectedText, kanaReading.trim());
+
+            // Rebuild the string from the map to ensure clean, unique entries
+            const newContent = Array.from(entryMap.entries())
+                .map(([key, value]) => `${key},${value}`)
+                .join('\n');
+
+            localStorage.setItem(STORAGE_KEYS.NEW_ENTRIES, newContent);
             showMessage(getLang('entry_saved'));
         }
     }
