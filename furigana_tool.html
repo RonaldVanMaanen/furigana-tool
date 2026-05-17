@@ -102,6 +102,27 @@
             display: flex;
             gap: 0.5em;
         }
+        .font-size-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+        }
+        .font-size-controls button {
+            width: 44px;
+            height: 44px;
+            font-size: 1.5em;
+            font-weight: bold;
+            padding: 0;
+            line-height: 44px; /* Vertically center text */
+            display: inline-block; /* Override full-width button style */
+            margin-bottom: 0; /* Override default margin */
+        }
+        #font-size-indicator {
+            font-weight: bold;
+            font-size: 1.1em;
+            min-width: 60px;
+            text-align: center;
+        }
 
         /* Modal Styles */
         .modal {
@@ -162,6 +183,15 @@
                 <button id="btn-mark-known" data-lang-key="known">Mark as Known</button>
                 <button id="btn-lookup-dict" data-lang-key="dict">Lookup Dictionary</button>
                 <button id="btn-switch-lang" data-lang-key="switch" class="secondary">Switch Language</button>
+            </div>
+
+            <div class="control-group">
+                <h2 data-lang-key="view_options_title">View Options</h2>
+                <div class="font-size-controls">
+                    <button id="btn-font-decrease" title="Decrease font size">-</button>
+                    <span id="font-size-indicator">16px</span>
+                    <button id="btn-font-increase" title="Increase font size">+</button>
+                </div>
             </div>
 
             <div class="control-group">
@@ -241,12 +271,17 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- 1. STATE AND CONFIGURATION ---
     let CURRENT_LANG = "EN";
+    let currentFontSize = 16; // Default font size in pixels
+    const FONT_SIZE_STEP = 2;
+    const MIN_FONT_SIZE = 8;
+    const MAX_FONT_SIZE = 40;
     const STORAGE_KEYS = {
         TOTAL_LIST: 'furigana_total_list',
         DONT_FURIGANIZE: 'furigana_dont_furiganize',
         NEW_ENTRIES: 'furigana_new_entries',
         RULES: 'furigana_rules',
-        DICTIONARY: 'furigana_dictionary'
+        DICTIONARY: 'furigana_dictionary',
+        FONT_SIZE: 'furigana_font_size'
     };
 
     const FILENAME_MAP = {
@@ -260,6 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const TRANSLATIONS = {
         "EN": {
             "main_editor_title": "Text Editor",
+            "view_options_title": "View Options",
             "menu_title": "Furigana Tool Menu",
             "data_management_title": "Data Management",
             "text_management_title": "Text Management",
@@ -299,6 +335,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         "JP": {
             "main_editor_title": "テキストエディター",
+            "view_options_title": "表示オプション",
             "menu_title": "ふりがなツールメニュー",
             "data_management_title": "データ管理",
             "text_management_title": "テキスト管理",
@@ -358,6 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 2. DOM ELEMENTS ---
     const editor = document.getElementById('editor');
+    const fontSizeIndicator = document.getElementById('font-size-indicator');
 
     // --- 3. UI & MODAL FUNCTIONS ---
     const getLang = (key) => TRANSLATIONS[CURRENT_LANG][key] || key;
@@ -447,6 +485,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- 5. CORE LOGIC ---
+    function applyFontSize(size) {
+        editor.style.fontSize = `${size}px`;
+        if(fontSizeIndicator) fontSizeIndicator.textContent = `${size}px`;
+    }
+
+    function changeFontSize(amount) {
+        let newSize = currentFontSize + amount;
+        if (newSize < MIN_FONT_SIZE) newSize = MIN_FONT_SIZE;
+        if (newSize > MAX_FONT_SIZE) newSize = MAX_FONT_SIZE;
+        currentFontSize = newSize;
+        applyFontSize(currentFontSize);
+        localStorage.setItem(STORAGE_KEYS.FONT_SIZE, currentFontSize);
+    }
+
     function getSelectedText() {
         const selection = window.getSelection();
         return selection.toString().trim();
@@ -624,6 +676,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-mark-known').addEventListener('click', addToKnown);
     document.getElementById('btn-lookup-dict').addEventListener('click', lookupDictionary);
 
+    // View options
+    document.getElementById('btn-font-increase').addEventListener('click', () => changeFontSize(FONT_SIZE_STEP));
+    document.getElementById('btn-font-decrease').addEventListener('click', () => changeFontSize(-FONT_SIZE_STEP));
+
     // Text management
     document.getElementById('btn-save-text').addEventListener('click', saveText);
     document.getElementById('btn-load-text').addEventListener('click', () => {
@@ -743,6 +799,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- 7. INITIALIZATION ---
+    const savedFontSize = localStorage.getItem(STORAGE_KEYS.FONT_SIZE);
+    if (savedFontSize) {
+        currentFontSize = parseInt(savedFontSize, 10);
+    }
+    applyFontSize(currentFontSize);
     updateLanguage();
 });
 </script>
