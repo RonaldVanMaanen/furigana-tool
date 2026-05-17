@@ -263,13 +263,13 @@ document.addEventListener('DOMContentLoaded', () => {
             "menu_title": "Furigana Tool Menu",
             "data_management_title": "Data Management",
             "text_management_title": "Text Management",
-            "add": "Add Furigana",
-            "remove": "Remove Furigana",
-            "new": "New Entry (Selected)",
-            "known": "Mark as Known",
+            "add": "Add Furigana (Alt+A)",
+            "remove": "Remove Furigana (Alt+R)",
+            "new": "New Entry (Selected) (Alt+N)",
+            "known": "Mark as Known (Alt+K)",
             "edit_known": "Edit Known List",
             "edit_new": "Edit New Entries",
-            "dict": "Lookup Dictionary",
+            "dict": "Lookup Dictionary (Alt+L)",
             "switch": "日本語に切り替え",
             "total_list_label": "JP Total List (CSV)",
             "dont_furiganize_label": "Don't Furiganize List (TXT)",
@@ -280,8 +280,8 @@ document.addEventListener('DOMContentLoaded', () => {
             "export_known": "Export Known",
             "delete_all": "Delete All Data",
             "load_folder": "Load Data From Folder",
-            "save_text": "Save Text",
-            "load_text": "Load Text",
+            "save_text": "Save Text (Alt+S)",
+            "load_text": "Load Text (Alt+O)",
             "ok": "OK", "yes": "Yes", "no": "No", "cancel": "Cancel", "save": "Save",
             "confirm_delete": "Are you sure you want to delete all stored data? This cannot be undone.",
             "data_deleted": "All data has been deleted.",
@@ -302,13 +302,13 @@ document.addEventListener('DOMContentLoaded', () => {
             "menu_title": "ふりがなツールメニュー",
             "data_management_title": "データ管理",
             "text_management_title": "テキスト管理",
-            "add": "振り仮名を付ける",
-            "remove": "振り仮名を消す",
-            "new": "新しい登録（選択中）",
-            "known": "既知としてマーク",
+            "add": "振り仮名を付ける (Alt+A)",
+            "remove": "振り仮名を消す (Alt+R)",
+            "new": "新しい登録（選択中） (Alt+N)",
+            "known": "既知としてマーク (Alt+K)",
             "edit_known": "既知のリストを編集",
             "edit_new": "新しい登録を編集",
-            "dict": "辞書を引く",
+            "dict": "辞書を引く (Alt+L)",
             "switch": "Switch to English",
             "total_list_label": "総合単語リスト (CSV)",
             "dont_furiganize_label": "振り仮名を付けないリスト (TXT)",
@@ -319,8 +319,8 @@ document.addEventListener('DOMContentLoaded', () => {
             "export_known": "既知のリストを輸出",
             "delete_all": "全データを削除",
             "load_folder": "フォルダからデータを読み込む",
-            "save_text": "テキストを保存",
-            "load_text": "テキストを読み込む",
+            "save_text": "テキストを保存 (Alt+S)",
+            "load_text": "テキストを読み込む (Alt+O)",
             "ok": "はい", "yes": "はい", "no": "いいえ", "cancel": "キャンセル", "save": "保存",
             "confirm_delete": "本当にすべてのデータを削除しますか？この操作は元に戻せません。",
             "data_deleted": "すべてのデータが削除されました。",
@@ -686,6 +686,43 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirmed) {
             Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
             showMessage(getLang('data_deleted'));
+        }
+    });
+
+    // Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => {
+        // Handle Escape key to close any open modal
+        if (e.key === 'Escape') {
+            const visibleModal = document.querySelector('.modal[style*="display: flex"]');
+            if (visibleModal) {
+                visibleModal.style.display = 'none';
+                e.preventDefault(); // Prevent other default browser actions
+                return; // Stop further processing
+            }
+        }
+
+        // Don't trigger other shortcuts if a modal is open or if we are in a text input field.
+        if (document.querySelector('.modal[style*="display: flex"]') || ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+            return;
+        }
+
+        if (e.altKey) {
+            let buttonId = null;
+            switch (e.key.toLowerCase()) {
+                case 'a': buttonId = 'btn-add-furigana'; break;
+                case 'r': buttonId = 'btn-remove-furigana'; break;
+                case 'n': buttonId = 'btn-new-entry'; break;
+                case 'k': buttonId = 'btn-mark-known'; break;
+                case 'l': buttonId = 'btn-lookup-dict'; break;
+                case 's': buttonId = 'btn-save-text'; break;
+                case 'o': buttonId = 'btn-load-text'; break;
+            }
+
+            if (buttonId) {
+                e.preventDefault();
+                const button = document.getElementById(buttonId);
+                if (button) button.click();
+            }
         }
     });
 
