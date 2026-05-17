@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Furigana Tool - Offline HTML</title>
+    <style>
+        :root {
+            --bg-color: #f0f0f0;
+            --fg-color: #1a1a1a;
+            --primary-color: #0078d4;
+            --primary-hover: #005a9e;
+            --border-color: #ccc;
+            --modal-bg: #fff;
+            --modal-shadow: rgba(0,0,0,0.4);
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 1em;
+            background-color: var(--bg-color);
+            color: var(--fg-color);
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 2em);
+        }
+        h1, h2 {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5em;
+        }
+        .container {
+            display: flex;
+            gap: 1em;
+            flex-grow: 1;
+            min-height: 0;
+        }
+        .main-content {
+            flex-grow: 3;
+            display: flex;
+            flex-direction: column;
+        }
+        .editor {
+            flex-grow: 1;
+            border: 1px solid var(--border-color);
+            padding: 0.5em;
+            overflow-y: auto;
+            background-color: #fff;
+            white-space: pre-wrap;
+        }
+        .controls {
+            flex-grow: 1;
+            max-width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 1em;
+        }
+        .control-group {
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 1em;
+            background-color: #fff;
+        }
+        .control-group h2 {
+            margin-top: 0;
+            font-size: 1.2em;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 0.8em;
+            margin-bottom: 0.5em;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--primary-color);
+            color: white;
+            font-size: 1em;
+            cursor: pointer;
+            text-align: center;
+        }
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+        button.secondary {
+            background-color: #6c757d;
+        }
+        button.secondary:hover {
+            background-color: #5a6268;
+        }
+        .file-input-group {
+            margin-bottom: 0.5em;
+        }
+        .file-input-group label {
+            display: block;
+            margin-bottom: 0.2em;
+            font-weight: bold;
+        }
+        .file-input-group input[type="file"] {
+            width: 100%;
+        }
+        .file-actions {
+            display: flex;
+            gap: 0.5em;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            background-color: var(--modal-shadow);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: var(--modal-bg);
+            padding: 20px;
+            border-radius: 5px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 8px var(--modal-shadow);
+        }
+        .modal-content h3 {
+            margin-top: 0;
+        }
+        .modal-content textarea, .modal-content input[type="text"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-color);
+        }
+        .modal-content textarea {
+            height: 200px;
+            resize: vertical;
+        }
+        .modal-buttons {
+            text-align: right;
+        }
+        .modal-buttons button {
+            display: inline-block;
+            width: auto;
+            padding: 10px 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="main-content">
+            <h1 data-lang-key="main_editor_title">Text Editor</h1>
+            <div id="editor" contenteditable="true" class="editor"></div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <h2 data-lang-key="menu_title">Furigana Tool Menu</h2>
+                <button id="btn-add-furigana" data-lang-key="add">Add Furigana</button>
+                <button id="btn-remove-furigana" data-lang-key="remove">Remove Furigana</button>
+                <button id="btn-new-entry" data-lang-key="new">New Entry (Selected)</button>
+                <button id="btn-mark-known" data-lang-key="known">Mark as Known</button>
+                <button id="btn-lookup-dict" data-lang-key="dict">Lookup Dictionary</button>
+                <button id="btn-switch-lang" data-lang-key="switch" class="secondary">Switch Language</button>
+            </div>
+
+            <div class="control-group">
+                <h2 data-lang-key="data_management_title">Data Management</h2>
+                <p data-lang-key="data_management_note" style="font-size: 0.8em; color: #6c757d; margin-top: -0.5em; margin-bottom: 1em;">
+                    <!-- This text is set by JavaScript -->
+                </p>
+                <button id="btn-load-folder" data-lang-key="load_folder">Load Data From Folder</button>
+                <input type="file" id="folder-picker" webkitdirectory directory style="display: none;" />
+                <hr>
+                <div class="file-actions">
+                    <button id="btn-edit-new" data-lang-key="edit_new" class="secondary">Edit New</button>
+                    <button id="btn-edit-known" data-lang-key="edit_known" class="secondary">Edit Known</button>
+                </div>
+                 <div class="file-actions">
+                    <button id="btn-export-new" data-lang-key="export_new" class="secondary">Export New</button>
+                    <button id="btn-export-known" data-lang-key="export_known" class="secondary">Export Known</button>
+                </div>
+                <button id="btn-delete-all" data-lang-key="delete_all" style="background-color:#dc3545;">Delete All Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-message" class="modal">
+        <div class="modal-content">
+            <h3 id="modal-message-title"></h3>
+            <p id="modal-message-text"></p>
+            <div class="modal-buttons">
+                <button id="modal-message-close" data-lang-key="ok">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-confirm" class="modal">
+        <div class="modal-content">
+            <h3 id="modal-confirm-title"></h3>
+            <p id="modal-confirm-text"></p>
+            <div class="modal-buttons">
+                <button id="modal-confirm-yes" data-lang-key="yes">Yes</button>
+                <button id="modal-confirm-no" data-lang-key="no">No</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-kana-input" class="modal">
+        <div class="modal-content">
+            <h3 id="modal-kana-title"></h3>
+            <p id="modal-kana-prompt"></p>
+            <input type="text" id="modal-kana-input-field" autocomplete="off">
+            <div class="modal-buttons">
+                <button id="modal-kana-ok" data-lang-key="ok">OK</button>
+                <button id="modal-kana-cancel" data-lang-key="cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-editor" class="modal">
+        <div class="modal-content">
+            <h3 id="modal-editor-title"></h3>
+            <textarea id="modal-editor-textarea"></textarea>
+            <div class="modal-buttons">
+                <button id="modal-editor-save" data-lang-key="save">Save</button>
+                <button id="modal-editor-cancel" data-lang-key="cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- 1. STATE AND CONFIGURATION ---
+    let CURRENT_LANG = "EN";
+    const STORAGE_KEYS = {
+        TOTAL_LIST: 'furigana_total_list',
+        DONT_FURIGANIZE: 'furigana_dont_furiganize',
+        NEW_ENTRIES: 'furigana_new_entries',
+        RULES: 'furigana_rules',
+        DICTIONARY: 'furigana_dictionary'
+    };
+
+    const FILENAME_MAP = {
+        'JP_Total_List.CSV': STORAGE_KEYS.TOTAL_LIST,
+        'DO_NOT_FURIGANIZE.txt': STORAGE_KEYS.DONT_FURIGANIZE,
+        'new_entries.csv': STORAGE_KEYS.NEW_ENTRIES,
+        'rules.csv': STORAGE_KEYS.RULES,
+        'dictionary.csv': STORAGE_KEYS.DICTIONARY
+    };
+
+    const TRANSLATIONS = {
+        "EN": {
+            "main_editor_title": "Text Editor",
+            "menu_title": "Furigana Tool Menu",
+            "data_management_title": "Data Management",
+            "add": "Add Furigana",
+            "remove": "Remove Furigana",
+            "new": "New Entry (Selected)",
+            "known": "Mark as Known",
+            "edit_known": "Edit Known List",
+            "edit_new": "Edit New Entries",
+            "dict": "Lookup Dictionary",
+            "switch": "日本語に切り替え",
+            "total_list_label": "JP Total List (CSV)",
+            "dont_furiganize_label": "Don't Furiganize List (TXT)",
+            "new_entries_label": "New Entries (CSV)",
+            "rules_label": "Context Rules (CSV)",
+            "dictionary_label": "Dictionary (CSV, Tab-separated)",
+            "export_new": "Export New",
+            "export_known": "Export Known",
+            "delete_all": "Delete All Data",
+            "load_folder": "Load Data From Folder",
+            "ok": "OK", "yes": "Yes", "no": "No", "cancel": "Cancel", "save": "Save",
+            "confirm_delete": "Are you sure you want to delete all stored data? This cannot be undone.",
+            "data_deleted": "All data has been deleted.",
+            "files_loaded_summary": "files loaded successfully.",
+            "data_management_note": "Click the button to select the folder containing your data files. Your browser will remember them.",
+            "error_loading": "Error loading file.",
+            "no_selection": "Please select a word first.",
+            "new_entry_prompt": "Enter KANA reading for:",
+            "confirm_save_entry": "Save this entry?",
+            "entry_saved": "Entry saved.",
+            "word_marked_known": "Word marked as known and furigana removed from text.",
+            "dict_not_found": "Word not found in dictionary.",
+            "furigana_removed": "Furigana removed from the selected text or the entire document.",
+            "processing_done": "Processing finished in"
+        },
+        "JP": {
+            "main_editor_title": "テキストエディター",
+            "menu_title": "ふりがなツールメニュー",
+            "data_management_title": "データ管理",
+            "add": "振り仮名を付ける",
+            "remove": "振り仮名を消す",
+            "new": "新しい登録（選択中）",
+            "known": "既知としてマーク",
+            "edit_known": "既知のリストを編集",
+            "edit_new": "新しい登録を編集",
+            "dict": "辞書を引く",
+            "switch": "Switch to English",
+            "total_list_label": "総合単語リスト (CSV)",
+            "dont_furiganize_label": "振り仮名を付けないリスト (TXT)",
+            "new_entries_label": "新しい登録 (CSV)",
+            "rules_label": "文脈ルール (CSV)",
+            "dictionary_label": "辞書 (CSV, タブ区切り)",
+            "export_new": "新しい登録を輸出",
+            "export_known": "既知のリストを輸出",
+            "delete_all": "全データを削除",
+            "load_folder": "フォルダからデータを読み込む",
+            "ok": "はい", "yes": "はい", "no": "いいえ", "cancel": "キャンセル", "save": "保存",
+            "confirm_delete": "本当にすべてのデータを削除しますか？この操作は元に戻せません。",
+            "data_deleted": "すべてのデータが削除されました。",
+            "files_loaded_summary": "個のファイルが正常に読み込まれました。",
+            "data_management_note": "ボタンをクリックして、データファイルが含まれるフォルダを選択してください。ブラウザはそれらを記憶します。",
+            "error_loading": "ファイルの読み込み中にエラーが発生しました。",
+            "no_selection": "まず単語を選択してください。",
+            "new_entry_prompt": "の仮名を入力してください：",
+            "confirm_save_entry": "この登録を保存しますか？",
+            "entry_saved": "登録が保存されました。",
+            "word_marked_known": "単語が既知としてマークされ、テキストから振り仮名が削除されました。",
+            "dict_not_found": "辞書に単語が見つかりませんでした。",
+            "furigana_removed": "選択範囲または文書全体から振り仮名が削除されました。",
+            "processing_done": "処理完了、時間："
+        }
+    };
+
+    const KANA_MAP = {
+        'ka':'か','ki':'き','ku':'く','ke':'け','ko':'こ','kya':'きゃ','kyu':'きゅ','kyo':'きょ',
+        'sa':'さ','shi':'し','su':'す','se':'せ','so':'そ','sha':'しゃ','shu':'しゅ','sho':'しょ',
+        'ta':'た','chi':'ち','tsu':'つ','te':'て','to':'と','cha':'ちゃ','chu':'ちゅ','cho':'ちょ',
+        'na':'な','ni':'に','nu':'ぬ','ne':'ね','no':'の','nya':'にゃ','nyu':'にゅ','nyo':'にょ',
+        'ha':'は','hi':'ひ','fu':'ふ','he':'へ','ho':'ほ','hya':'ひゃ','hyu':'ひゅ','hyo':'ひょ',
+        'ma':'ま','mi':'み','mu':'む','me':'め','mo':'も','mya':'みゃ','myu':'みゅ','myo':'みょ',
+        'ya':'や','yu':'ゆ','yo':'よ',
+        'ra':'ら','ri':'り','ru':'る','re':'れ','ro':'ろ','rya':'りゃ','ryu':'りゅ','ryo':'りょ',
+        'wa':'わ','wo':'を','nn':'ん','n ':'ん',
+        'ga':'が','gi':'ぎ','gu':'ぐ','ge':'げ','go':'ご','gya':'ぎゃ','gyu':'ぎゅ','gyo':'ぎょ',
+        'za':'ざ','ji':'じ','zu':'ず','ze':'ぜ','zo':'ぞ','ja':'じゃ','ju':'じゅ','jo':'じょ',
+        'da':'だ','di':'ぢ','du':'づ','de':'で','do':'ど',
+        'ba':'ば','bi':'び','bu':'ぶ','be':'べ','bo':'ぼ','bya':'びゃ','byu':'びゅ','byo':'びょ',
+        'pa':'ぱ','pi':'ぴ','pu':'ぷ','pe':'ぺ','po':'ぽ','pya':'ぴゃ','pyu':'ぴゅ','pyo':'ぴょ',
+        'a':'あ','i':'い','u':'う','e':'え','o':'お'
+    };
+
+    // --- 2. DOM ELEMENTS ---
+    const editor = document.getElementById('editor');
+
+    // --- 3. UI & MODAL FUNCTIONS ---
+    const getLang = (key) => TRANSLATIONS[CURRENT_LANG][key] || key;
+
+    function updateLanguage() {
+        document.querySelectorAll('[data-lang-key]').forEach(el => {
+            const key = el.dataset.langKey;
+            if (['BUTTON', 'H1', 'H2', 'LABEL', 'P'].includes(el.tagName)) {
+                el.textContent = getLang(key);
+            }
+        });
+    }
+
+    function showMessage(text, title = "Info") {
+        document.getElementById('modal-message-title').textContent = title;
+        document.getElementById('modal-message-text').textContent = text;
+        document.getElementById('modal-message').style.display = 'flex';
+    }
+
+    function showConfirm(text, title = "Confirm") {
+        return new Promise(resolve => {
+            document.getElementById('modal-confirm-title').textContent = title;
+            document.getElementById('modal-confirm-text').textContent = text;
+            document.getElementById('modal-confirm').style.display = 'flex';
+
+            document.getElementById('modal-confirm-yes').onclick = () => {
+                document.getElementById('modal-confirm').style.display = 'none';
+                resolve(true);
+            };
+            document.getElementById('modal-confirm-no').onclick = () => {
+                document.getElementById('modal-confirm').style.display = 'none';
+                resolve(false);
+            };
+        });
+    }
+
+    function showKanaInput(promptText, title) {
+        return new Promise(resolve => {
+            document.getElementById('modal-kana-title').textContent = title;
+            document.getElementById('modal-kana-prompt').textContent = promptText;
+            const inputField = document.getElementById('modal-kana-input-field');
+            inputField.value = '';
+            document.getElementById('modal-kana-input').style.display = 'flex';
+            inputField.focus();
+
+            document.getElementById('modal-kana-ok').onclick = () => {
+                document.getElementById('modal-kana-input').style.display = 'none';
+                resolve(inputField.value);
+            };
+            document.getElementById('modal-kana-cancel').onclick = () => {
+                document.getElementById('modal-kana-input').style.display = 'none';
+                resolve(null);
+            };
+        });
+    }
+
+    function showEditor(storageKey, title) {
+        const content = localStorage.getItem(storageKey) || '';
+        document.getElementById('modal-editor-title').textContent = title;
+        const textarea = document.getElementById('modal-editor-textarea');
+        textarea.value = content;
+        document.getElementById('modal-editor').style.display = 'flex';
+
+        document.getElementById('modal-editor-save').onclick = () => {
+            localStorage.setItem(storageKey, textarea.value);
+            document.getElementById('modal-editor').style.display = 'none';
+            showMessage(getLang('entry_saved'));
+        };
+        document.getElementById('modal-editor-cancel').onclick = () => {
+            document.getElementById('modal-editor').style.display = 'none';
+        };
+    }
+
+    // --- 4. DATA HANDLING ---
+
+    function exportData(key, filename) {
+        const content = localStorage.getItem(key) || '';
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // --- 5. CORE LOGIC ---
+    function getSelectedText() {
+        const selection = window.getSelection();
+        return selection.toString().trim();
+    }
+
+    function convertStringToKana(text) {
+        let res = text.toLowerCase();
+        for (const romaji of Object.keys(KANA_MAP).sort((a, b) => b.length - a.length)) {
+            res = res.replace(new RegExp(romaji, 'g'), KANA_MAP[romaji]);
+        }
+        res = res.replace(/([kkssppttggzzjdbhr])\1/g, 'っ$1');
+        return res;
+    }
+
+    function addFurigana() {
+        const startTime = performance.now();
+        let content = editor.innerHTML;
+
+        // 1. Get data from localStorage
+        const totalListRaw = localStorage.getItem(STORAGE_KEYS.TOTAL_LIST) || '';
+        const newEntriesRaw = localStorage.getItem(STORAGE_KEYS.NEW_ENTRIES) || '';
+        const knownWordsRaw = localStorage.getItem(STORAGE_KEYS.DONT_FURIGANIZE) || '';
+        const rulesRaw = localStorage.getItem(STORAGE_KEYS.RULES) || '';
+
+        // 2. Prepare word maps and lists
+        const wordMap = {};
+        [totalListRaw, newEntriesRaw].forEach(raw => {
+            raw.split(/\r?\n/).forEach(line => {
+                const parts = line.split(',');
+                if (parts.length >= 2 && parts[0].trim()) {
+                    wordMap[parts[0].trim()] = parts[1].trim();
+                }
+            });
+        });
+
+        const knownWords = new Set(knownWordsRaw.split(/\r?\n/).map(w => w.trim()).filter(Boolean));
+        const contextRules = rulesRaw.split(/\r?\n/).slice(1) // skip header
+            .map(line => line.split(',')).filter(row => row.length >= 4);
+
+        // Function to escape regex special characters
+        const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        // 3. Apply context rules first
+        contextRules.forEach(rule => {
+            const [target, direction, pattern, reading] = rule.map(s => s.trim());
+            if (!target || !pattern || !reading) return;
+            
+            const searchPattern = direction.toUpperCase() === 'B' 
+                ? `(${escapeRegex(pattern)})(${escapeRegex(target)})`
+                : `(${escapeRegex(target)})(${escapeRegex(pattern)})`;
+            
+            const regex = new RegExp(searchPattern, 'g');
+            content = content.replace(regex, (match, p1, p2) => {
+                if (direction.toUpperCase() === 'B') {
+                    return `${p1}<ruby>${p2}<rt>${reading}</rt></ruby>`;
+                } else {
+                    return `<ruby>${p1}<rt>${reading}</rt></ruby>${p2}`;
+                }
+            });
+        });
+
+        // 4. Apply main word list, sorted by length
+        const sortedWords = Object.keys(wordMap).sort((a, b) => b.length - a.length);
+        sortedWords.forEach(word => {
+            if (knownWords.has(word)) return;
+            const reading = wordMap[word];
+            // Use a regex that doesn't match inside existing HTML tags
+            const regex = new RegExp(escapeRegex(word) + '(?![^<]*>|<rt>)', 'g');
+            content = content.replace(regex, `<ruby>${word}<rt>${reading}</rt></ruby>`);
+        });
+
+        // 5. Remove furigana for known words that might have been added
+        knownWords.forEach(word => {
+            const regex = new RegExp(`<ruby>${escapeRegex(word)}<rt>.*?<\/rt><\/ruby>`, 'g');
+            content = content.replace(regex, word);
+        });
+
+        editor.innerHTML = content;
+        const duration = ((performance.now() - startTime) / 1000).toFixed(2);
+        showMessage(`${getLang('processing_done')} ${duration}s`);
+    }
+
+    function removeFurigana() {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0 && selection.toString().length > 0) {
+            const range = selection.getRangeAt(0);
+            const container = document.createElement('div');
+            container.appendChild(range.cloneContents());
+            let html = container.innerHTML;
+            html = html.replace(/<ruby>(.*?)<rt>.*?<\/rt><\/ruby>/g, '$1');
+            range.deleteContents();
+            range.insertNode(document.createRange().createContextualFragment(html));
+        } else {
+            editor.innerHTML = editor.innerHTML.replace(/<ruby>(.*?)<rt>.*?<\/rt><\/ruby>/g, '$1');
+        }
+        showMessage(getLang('furigana_removed'));
+    }
+
+    async function addCustomEntry() {
+        const selectedText = getSelectedText();
+        if (!selectedText) {
+            showMessage(getLang('no_selection'));
+            return;
+        }
+
+        const kanaReading = await showKanaInput(`${getLang('new_entry_prompt')} "${selectedText}"`, getLang('new'));
+        if (kanaReading === null) return;
+
+        const confirmed = await showConfirm(`${getLang('confirm_save_entry')}\n\n${selectedText},${kanaReading}`);
+        if (confirmed) {
+            const newEntry = `\n${selectedText},${kanaReading.trim()}`;
+            const currentEntries = localStorage.getItem(STORAGE_KEYS.NEW_ENTRIES) || '';
+            localStorage.setItem(STORAGE_KEYS.NEW_ENTRIES, currentEntries + newEntry);
+            showMessage(getLang('entry_saved'));
+        }
+    }
+
+    async function addToKnown() {
+        const word = getSelectedText();
+        if (!word) {
+            showMessage(getLang('no_selection'));
+            return;
+        }
+        const currentKnown = localStorage.getItem(STORAGE_KEYS.DONT_FURIGANIZE) || '';
+        localStorage.setItem(STORAGE_KEYS.DONT_FURIGANIZE, currentKnown + `\n${word}`);
+
+        // Remove furigana for this word in the editor
+        const regex = new RegExp(`<ruby>${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}<rt>.*?<\/rt><\/ruby>`, 'g');
+        editor.innerHTML = editor.innerHTML.replace(regex, word);
+
+        showMessage(getLang('word_marked_known'));
+    }
+
+    function lookupDictionary() {
+        const word = getSelectedText();
+        if (!word) {
+            showMessage(getLang('no_selection'));
+            return;
+        }
+        const dictRaw = localStorage.getItem(STORAGE_KEYS.DICTIONARY) || '';
+        const matches = dictRaw.split(/\r?\n/).map(line => line.split('\t'))
+            .filter(row => row.length >= 4 && row[0].trim() === word);
+
+        if (matches.length > 0) {
+            const results = matches.map(row => `Reading: ${row[1]}\nMeaning: ${row[2]}\nTags: ${row[3]}`).join('\n---\n');
+            showMessage(results, `Dictionary: ${word}`);
+        } else {
+            showMessage(getLang('dict_not_found'));
+        }
+    }
+
+    // --- 6. EVENT LISTENERS ---
+    document.getElementById('btn-switch-lang').addEventListener('click', () => {
+        CURRENT_LANG = (CURRENT_LANG === "EN") ? "JP" : "EN";
+        updateLanguage();
+    });
+
+    // Main menu buttons
+    document.getElementById('btn-add-furigana').addEventListener('click', addFurigana);
+    document.getElementById('btn-remove-furigana').addEventListener('click', removeFurigana);
+    document.getElementById('btn-new-entry').addEventListener('click', addCustomEntry);
+    document.getElementById('btn-mark-known').addEventListener('click', addToKnown);
+    document.getElementById('btn-lookup-dict').addEventListener('click', lookupDictionary);
+
+    // --- Data Management ---
+    document.getElementById('btn-load-folder').addEventListener('click', () => {
+        document.getElementById('folder-picker').click();
+    });
+
+    document.getElementById('folder-picker').addEventListener('change', async (e) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        const filesToLoad = Array.from(files).filter(file => FILENAME_MAP[file.name]);
+
+        let loadedCount = 0;
+        const promises = filesToLoad.map(file => {
+            const storageKey = FILENAME_MAP[file.name];
+            const reader = new FileReader();
+            return new Promise(resolve => {
+                reader.onload = (event) => {
+                    localStorage.setItem(storageKey, event.target.result);
+                    loadedCount++;
+                    resolve();
+                };
+                reader.onerror = () => {
+                    console.error(`Error reading ${file.name}`);
+                    resolve(); // Resolve anyway to not block Promise.all
+                };
+                reader.readAsText(file, 'UTF-8');
+            });
+        });
+
+        await Promise.all(promises);
+        showMessage(`${loadedCount} ${getLang('files_loaded_summary')}`);
+        e.target.value = ''; // Allow re-selecting the same folder
+    });
+
+    document.getElementById('btn-edit-new').addEventListener('click', () => showEditor(STORAGE_KEYS.NEW_ENTRIES, getLang('edit_new')));
+    document.getElementById('btn-edit-known').addEventListener('click', () => showEditor(STORAGE_KEYS.DONT_FURIGANIZE, getLang('edit_known')));
+
+    document.getElementById('btn-export-new').addEventListener('click', () => exportData(STORAGE_KEYS.NEW_ENTRIES, 'new_entries.csv'));
+    document.getElementById('btn-export-known').addEventListener('click', () => exportData(STORAGE_KEYS.DONT_FURIGANIZE, 'DO_NOT_FURIGANIZE.txt'));
+
+    document.getElementById('btn-delete-all').addEventListener('click', async () => {
+        const confirmed = await showConfirm(getLang('confirm_delete'));
+        if (confirmed) {
+            Object.values(STORAGE_KEYS).forEach(key => localStorage.removeItem(key));
+            showMessage(getLang('data_deleted'));
+        }
+    });
+
+    // Modal close buttons
+    document.getElementById('modal-message-close').addEventListener('click', () => document.getElementById('modal-message').style.display = 'none');
+
+    // Live kana conversion
+    document.getElementById('modal-kana-input-field').addEventListener('input', (e) => {
+        const input = e.target;
+        const originalText = input.value;
+        const convertedText = convertStringToKana(originalText);
+        if (originalText !== convertedText) {
+            const originalPos = input.selectionStart;
+            input.value = convertedText;
+            const newPos = originalPos + (convertedText.length - originalText.length);
+            input.setSelectionRange(newPos, newPos);
+        }
+    });
+
+    // --- 7. INITIALIZATION ---
+    updateLanguage();
+});
+</script>
+
+</body>
+</html>
