@@ -21,6 +21,7 @@ NEW_ENTRIES_PATH = os.path.join(BASE_DIR, "new_entries.csv")
 
 # --- 2. TAALINSTELLINGEN EN VERTALEN ---
 CURRENT_LANG = "EN" # Standaard taal
+REMOVE_KNOWN_FURIGANA = True # Standaard aan
 
 TRANSLATIONS = {
     "EN": {
@@ -32,7 +33,8 @@ TRANSLATIONS = {
         "edit_new": "Edit New Entries",
         "dict": "Lookup Dictionary",        
         "switch": "Switch to Japanese / 日本語に切り替え",
-        "title": "Furigana Tool Menu"
+        "title": "Furigana Tool Menu",
+        "remove_known": "Auto-remove Known"
     },
     "JP": {
         "add": "振り仮名を付ける（全部）",
@@ -43,7 +45,8 @@ TRANSLATIONS = {
         "edit_new": "新しい登録を編集",
         "dict": "辞書を引く",
         "switch": "Switch to English / 英語に切り替え",
-        "title": "ふりがなツールメニュー"
+        "title": "ふりがなツールメニュー",
+        "remove_known": "既知を自動削除"
     }
 }
 
@@ -210,14 +213,15 @@ def add_furigana_fast():
                     m = found.getByIndex(j)
                     if has_active_selection and not is_in_selection(m, selection): continue
                     if not getattr(m, "RubyText", ""): m.RubyText = reading
-        for target in known_words:
-            search_desc.SearchString = target
-            found = doc.findAll(search_desc)
-            if found:
-                for j in range(found.getCount()):
-                    m = found.getByIndex(j)
-                    if has_active_selection and not is_in_selection(m, selection): continue
-                    m.RubyText = ""
+        if REMOVE_KNOWN_FURIGANA:
+            for target in known_words:
+                search_desc.SearchString = target
+                found = doc.findAll(search_desc)
+                if found:
+                    for j in range(found.getCount()):
+                        m = found.getByIndex(j)
+                        if has_active_selection and not is_in_selection(m, selection): continue
+                        m.RubyText = ""
     finally:
         doc.unlockControllers()
     msgbox(f"Done in {time.perf_counter()-global_start:.2f}s")
@@ -249,13 +253,14 @@ def add_to_known_words():
     word = selection.getByIndex(0).getString().strip()
     try:
         with open(CSV_PATH_2, 'a', encoding='utf-8-sig') as f: f.write(f"\n{word}")
-        doc.lockControllers()
-        search_desc = doc.createSearchDescriptor()
-        search_desc.SearchString = word
-        found = doc.findAll(search_desc)
-        if found:
-            for i in range(found.getCount()): found.getByIndex(i).RubyText = ""
-        doc.unlockControllers()
+        if REMOVE_KNOWN_FURIGANA:
+            doc.lockControllers()
+            search_desc = doc.createSearchDescriptor()
+            search_desc.SearchString = word
+            found = doc.findAll(search_desc)
+            if found:
+                for i in range(found.getCount()): found.getByIndex(i).RubyText = ""
+            doc.unlockControllers()
         msgbox(f"'{word}' marked as known.")
     except Exception as e: msgbox(str(e))
 
@@ -358,13 +363,13 @@ def edit_new_entries_file():
 # --- MENU ---
 
 def furigana_main_menu():
-    global CURRENT_LANG
+    global CURRENT_LANG, REMOVE_KNOWN_FURIGANA
     ctx = uno.getComponentContext()
     smgr = ctx.ServiceManager
     
     t = TRANSLATIONS[CURRENT_LANG]
     dialog_model = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialogModel", ctx) #
-    dialog_model.Width = 150 ; dialog_model.Height = 190 ; dialog_model.Title = t["title"]
+    dialog_model.Width = 150 ; dialog_model.Height = 210 ; dialog_model.Title = t["title"]
     
     options = [
         (t["add"], 5, add_furigana_fast),
@@ -381,6 +386,12 @@ def furigana_main_menu():
         btn = dialog_model.createInstance("com.sun.star.awt.UnoControlButtonModel")
         btn.Name = f"btn_{i}" ; btn.Label = label ; btn.PositionX = 10 ; btn.PositionY = y_pos
         btn.Width = 130 ; btn.Height = 15 ; dialog_model.insertByName(btn.Name, btn)
+
+    chk_model = dialog_model.createInstance("com.sun.star.awt.UnoControlCheckBoxModel")
+    chk_model.Name = "chk_remove_known" ; chk_model.Label = t["remove_known"]
+    chk_model.PositionX = 10 ; chk_model.PositionY = 175 ; chk_model.Width = 130 ; chk_model.Height = 15
+    chk_model.State = 1 if REMOVE_KNOWN_FURIGANA else 0
+    dialog_model.insertByName(chk_model.Name, chk_model)
     
     dialog = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialog", ctx)
     dialog.setModel(dialog_model)
@@ -395,7 +406,11 @@ def furigana_main_menu():
 
     listener = ButtonListener(dialog, options)
     for i in range(len(options)): dialog.getControl(f"btn_{i}").addActionListener(listener)
-    dialog.setVisible(True) ; dialog.execute() ; dialog.dispose()
+    dialog.setVisible(True)
+    dialog.execute()
+    
+    REMOVE_KNOWN_FURIGANA = dialog.getControl("chk_remove_known").getState() == 1
+    dialog.dispose()
     
     if listener.choice == "SWITCH":
         CURRENT_LANG = "JP" if CURRENT_LANG == "EN" else "EN"
