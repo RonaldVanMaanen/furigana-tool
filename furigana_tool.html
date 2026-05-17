@@ -165,6 +165,13 @@
             </div>
 
             <div class="control-group">
+                <h2 data-lang-key="text_management_title">Text Management</h2>
+                <button id="btn-save-text" data-lang-key="save_text">Save Text</button>
+                <button id="btn-load-text" data-lang-key="load_text">Load Text</button>
+                <input type="file" id="text-file-picker" style="display: none;" accept=".txt,.html,.htm" />
+            </div>
+
+            <div class="control-group">
                 <h2 data-lang-key="data_management_title">Data Management</h2>
                 <p data-lang-key="data_management_note" style="font-size: 0.8em; color: #6c757d; margin-top: -0.5em; margin-bottom: 1em;">
                     <!-- This text is set by JavaScript -->
@@ -255,6 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
             "main_editor_title": "Text Editor",
             "menu_title": "Furigana Tool Menu",
             "data_management_title": "Data Management",
+            "text_management_title": "Text Management",
             "add": "Add Furigana",
             "remove": "Remove Furigana",
             "new": "New Entry (Selected)",
@@ -272,6 +280,8 @@ document.addEventListener('DOMContentLoaded', () => {
             "export_known": "Export Known",
             "delete_all": "Delete All Data",
             "load_folder": "Load Data From Folder",
+            "save_text": "Save Text",
+            "load_text": "Load Text",
             "ok": "OK", "yes": "Yes", "no": "No", "cancel": "Cancel", "save": "Save",
             "confirm_delete": "Are you sure you want to delete all stored data? This cannot be undone.",
             "data_deleted": "All data has been deleted.",
@@ -291,6 +301,7 @@ document.addEventListener('DOMContentLoaded', () => {
             "main_editor_title": "テキストエディター",
             "menu_title": "ふりがなツールメニュー",
             "data_management_title": "データ管理",
+            "text_management_title": "テキスト管理",
             "add": "振り仮名を付ける",
             "remove": "振り仮名を消す",
             "new": "新しい登録（選択中）",
@@ -308,6 +319,8 @@ document.addEventListener('DOMContentLoaded', () => {
             "export_known": "既知のリストを輸出",
             "delete_all": "全データを削除",
             "load_folder": "フォルダからデータを読み込む",
+            "save_text": "テキストを保存",
+            "load_text": "テキストを読み込む",
             "ok": "はい", "yes": "はい", "no": "いいえ", "cancel": "キャンセル", "save": "保存",
             "confirm_delete": "本当にすべてのデータを削除しますか？この操作は元に戻せません。",
             "data_deleted": "すべてのデータが削除されました。",
@@ -446,6 +459,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         res = res.replace(/([kkssppttggzzjdbhr])\1/g, 'っ$1');
         return res;
+    }
+
+    function saveText() {
+        const content = editor.innerHTML;
+        const blob = new Blob([content], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'furigana_text.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 
     function addFurigana() {
@@ -597,6 +623,23 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-new-entry').addEventListener('click', addCustomEntry);
     document.getElementById('btn-mark-known').addEventListener('click', addToKnown);
     document.getElementById('btn-lookup-dict').addEventListener('click', lookupDictionary);
+
+    // Text management
+    document.getElementById('btn-save-text').addEventListener('click', saveText);
+    document.getElementById('btn-load-text').addEventListener('click', () => {
+        document.getElementById('text-file-picker').click();
+    });
+
+    document.getElementById('text-file-picker').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            editor.innerHTML = event.target.result;
+        };
+        reader.readAsText(file);
+        e.target.value = ''; // Allow re-selecting the same file
+    });
 
     // --- Data Management ---
     document.getElementById('btn-load-folder').addEventListener('click', () => {
